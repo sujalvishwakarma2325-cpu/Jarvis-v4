@@ -1,9 +1,9 @@
 -- Merging decision tree log ---
 manifest
-ADDED from /home/runner/work/Jarvis-v4/Jarvis-v4/JARVIS_V4/app/src/main/AndroidManifest.xml:1:1-30:12
-INJECTED from /home/runner/work/Jarvis-v4/Jarvis-v4/JARVIS_V4/app/src/main/AndroidManifest.xml:1:1-30:12
-INJECTED from /home/runner/work/Jarvis-v4/Jarvis-v4/JARVIS_V4/app/src/main/AndroidManifest.xml:1:1-30:12
-INJECTED from /home/runner/work/Jarvis-v4/Jarvis-v4/JARVIS_V4/app/src/main/AndroidManifest.xml:1:1-30:12
+ADDED from /home/runner/work/Jarvis-v4/Jarvis-v4/JARVIS_V4/app/src/main/AndroidManifest.xml:1:1-28:12
+INJECTED from /home/runner/work/Jarvis-v4/Jarvis-v4/JARVIS_V4/app/src/main/AndroidManifest.xml:1:1-28:12
+INJECTED from /home/runner/work/Jarvis-v4/Jarvis-v4/JARVIS_V4/app/src/main/AndroidManifest.xml:1:1-28:12
+INJECTED from /home/runner/work/Jarvis-v4/Jarvis-v4/JARVIS_V4/app/src/main/AndroidManifest.xml:1:1-28:12
 MERGED from [com.google.android.material:material:1.12.0] /home/runner/.gradle/caches/8.11.1/transforms/1660e277e5e2af80b07c4c0bb0f53117/transformed/material-1.12.0/AndroidManifest.xml:17:1-24:12
 MERGED from [androidx.appcompat:appcompat-resources:1.7.0] /home/runner/.gradle/caches/8.11.1/transforms/2bf9e066fdd85cd1212109ad7d32c4e1/transformed/appcompat-resources-1.7.0/AndroidManifest.xml:2:1-7:12
 MERGED from [androidx.constraintlayout:constraintlayout:2.0.1] /home/runner/.gradle/caches/8.11.1/transforms/f7c1a68586f7b146ca27a76a53d1136f/transformed/constraintlayout-2.0.1/AndroidManifest.xml:2:1-11:12
@@ -64,8 +64,8 @@ ADDED from /home/runner/work/Jarvis-v4/Jarvis-v4/JARVIS_V4/app/src/main/AndroidM
 	android:name
 		ADDED from /home/runner/work/Jarvis-v4/Jarvis-v4/JARVIS_V4/app/src/main/AndroidManifest.xml:4:9-51
 application
-ADDED from /home/runner/work/Jarvis-v4/Jarvis-v4/JARVIS_V4/app/src/main/AndroidManifest.xml:6:5-28:19
-INJECTED from /home/runner/work/Jarvis-v4/Jarvis-v4/JARVIS_V4/app/src/main/AndroidManifest.xml:6:5-28:19
+ADDED from /home/runner/work/Jarvis-v4/Jarvis-v4/JARVIS_V4/app/src/main/AndroidManifest.xml:6:5-26:19
+INJECTED from /home/runner/work/Jarvis-v4/Jarvis-v4/JARVIS_V4/app/src/main/AndroidManifest.xml:6:5-26:19
 MERGED from [com.google.android.material:material:1.12.0] /home/runner/.gradle/caches/8.11.1/transforms/1660e277e5e2af80b07c4c0bb0f53117/transformed/material-1.12.0/AndroidManifest.xml:22:5-20
 MERGED from [com.google.android.material:material:1.12.0] /home/runner/.gradle/caches/8.11.1/transforms/1660e277e5e2af80b07c4c0bb0f53117/transformed/material-1.12.0/AndroidManifest.xml:22:5-20
 MERGED from [androidx.constraintlayout:constraintlayout:2.0.1] /home/runner/.gradle/caches/8.11.1/transforms/f7c1a68586f7b146ca27a76a53d1136f/transformed/constraintlayout-2.0.1/AndroidManifest.xml:9:5-20
@@ -97,21 +97,21 @@ MERGED from [androidx.versionedparcelable:versionedparcelable:1.1.1] /home/runne
 	android:theme
 		ADDED from /home/runner/work/Jarvis-v4/Jarvis-v4/JARVIS_V4/app/src/main/AndroidManifest.xml:10:9-46
 activity#com.jarvis.v4.MainActivity
-ADDED from /home/runner/work/Jarvis-v4/Jarvis-v4/JARVIS_V4/app/src/main/AndroidManifest.xml:12:9-26:20
+ADDED from /home/runner/work/Jarvis-v4/Jarvis-v4/JARVIS_V4/app/src/main/AndroidManifest.xml:12:9-24:20
 	android:exported
 		ADDED from /home/runner/work/Jarvis-v4/Jarvis-v4/JARVIS_V4/app/src/main/AndroidManifest.xml:14:13-36
 	android:name
 		ADDED from /home/runner/work/Jarvis-v4/Jarvis-v4/JARVIS_V4/app/src/main/AndroidManifest.xml:13:13-41
 intent-filter#action:name:android.intent.action.MAIN+category:name:android.intent.category.LAUNCHER
-ADDED from /home/runner/work/Jarvis-v4/Jarvis-v4/JARVIS_V4/app/src/main/AndroidManifest.xml:16:13-24:29
+ADDED from /home/runner/work/Jarvis-v4/Jarvis-v4/JARVIS_V4/app/src/main/AndroidManifest.xml:16:13-22:29
 action#android.intent.action.MAIN
-ADDED from /home/runner/work/Jarvis-v4/Jarvis-v4/JARVIS_V4/app/src/main/AndroidManifest.xml:18:17-19:65
+ADDED from /home/runner/work/Jarvis-v4/Jarvis-v4/JARVIS_V4/app/src/main/AndroidManifest.xml:17:17-18:65
 	android:name
-		ADDED from /home/runner/work/Jarvis-v4/Jarvis-v4/JARVIS_V4/app/src/main/AndroidManifest.xml:19:21-62
+		ADDED from /home/runner/work/Jarvis-v4/Jarvis-v4/JARVIS_V4/app/src/main/AndroidManifest.xml:18:21-62
 category#android.intent.category.LAUNCHER
-ADDED from /home/runner/work/Jarvis-v4/Jarvis-v4/JARVIS_V4/app/src/main/AndroidManifest.xml:21:17-22:71
+ADDED from /home/runner/work/Jarvis-v4/Jarvis-v4/JARVIS_V4/app/src/main/AndroidManifest.xml:20:17-21:71
 	android:name
-		ADDED from /home/runner/work/Jarvis-v4/Jarvis-v4/JARVIS_V4/app/src/main/AndroidManifest.xml:22:21-68
+		ADDED from /home/runner/work/Jarvis-v4/Jarvis-v4/JARVIS_V4/app/src/main/AndroidManifest.xml:21:21-68
 uses-sdk
 INJECTED from /home/runner/work/Jarvis-v4/Jarvis-v4/JARVIS_V4/app/src/main/AndroidManifest.xml reason: use-sdk injection requested
 INJECTED from /home/runner/work/Jarvis-v4/Jarvis-v4/JARVIS_V4/app/src/main/AndroidManifest.xml

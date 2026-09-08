@@ -23,23 +23,17 @@ class LocalAI(
     }
 
     private var engine: Engine? = null
-
     private var conversation: Conversation? = null
-
     private var initialized = false
 
     private val modelFile: File
-        get() {
-            val directory = File(
+        get() = File(
+            File(
                 context.filesDir,
                 MODEL_DIRECTORY
-            )
-
-            return File(
-                directory,
-                MODEL_NAME
-            )
-        }
+            ),
+            MODEL_NAME
+        )
 
     suspend fun initialize(): Result<String> =
         withContext(Dispatchers.IO) {
@@ -53,15 +47,7 @@ class LocalAI(
             if (!modelFile.exists()) {
                 return@withContext Result.failure(
                     Exception(
-                        """
-                        Gemma model is not installed.
-
-                        Required file:
-                        $MODEL_NAME
-
-                        Expected location:
-                        ${modelFile.absolutePath}
-                        """.trimIndent()
+                        "Gemma model is not installed."
                     )
                 )
             }
@@ -69,11 +55,13 @@ class LocalAI(
             try {
 
                 val config = EngineConfig(
-                    modelPath = modelFile.absolutePath,
+                    modelPath =
+                        modelFile.absolutePath,
                     backend = Backend.CPU()
                 )
 
-                val newEngine = Engine(config)
+                val newEngine =
+                    Engine(config)
 
                 newEngine.initialize()
 
@@ -96,15 +84,16 @@ class LocalAI(
                 }
 
                 engine = null
-
                 conversation = null
-
                 initialized = false
 
                 Result.failure(
                     Exception(
                         "Local AI initialization failed: " +
-                            (e.message ?: "Unknown error")
+                            (
+                                e.message
+                                    ?: "Unknown error"
+                            )
                     )
                 )
             }
@@ -122,7 +111,6 @@ class LocalAI(
             }
 
             if (!initialized) {
-
                 val result = initialize()
 
                 if (result.isFailure) {
@@ -166,7 +154,6 @@ class LocalAI(
                 currentConversation
                     .sendMessageAsync(fullPrompt)
                     .collect { message ->
-
                         response.append(
                             message.toString()
                         )
@@ -190,27 +177,17 @@ class LocalAI(
                 Result.failure(
                     Exception(
                         "Local AI error: " +
-                            (e.message ?: "Unknown error")
-                    )
+                            (
+                                e.message
+                                    ?: "Unknown error"
+                            )
+                  )
                 )
             }
         }
 
     fun isModelInstalled(): Boolean {
         return modelFile.exists()
-    }
-
-    fun getModelPath(): String {
-        return modelFile.absolutePath
-    }
-
-    fun getModelSizeBytes(): Long {
-
-        return if (modelFile.exists()) {
-            modelFile.length()
-        } else {
-            0L
-        }
     }
 
     fun close() {
@@ -226,9 +203,7 @@ class LocalAI(
         }
 
         conversation = null
-
         engine = null
-
         initialized = false
     }
 }

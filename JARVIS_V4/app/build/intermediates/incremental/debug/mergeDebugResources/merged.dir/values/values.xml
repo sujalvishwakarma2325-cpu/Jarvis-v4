@@ -6313,8 +6313,9 @@
     <style name="Theme.JarvisV4" parent="android:style/Theme.Material.Light.NoActionBar">
 
         <item name="android:fontFamily">sans</item>
-        <item name="android:statusBarColor">#000000</item>
-        <item name="android:navigationBarColor">#000000</item>
+        <item name="android:statusBarColor">#050505</item>
+        <item name="android:navigationBarColor">#050505</item>
+        <item name="android:windowLightStatusBar">false</item>
 
     </style>
     <style name="Theme.Material3.Dark" parent="Base.Theme.Material3.Dark"/>
