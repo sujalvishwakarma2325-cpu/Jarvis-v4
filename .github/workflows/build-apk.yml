@@ -1,19 +1,24 @@
-name: Build JARVIS V4 APK
+name: JARVIS V4 Build
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
 
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
-
       - name: Checkout repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v4
 
       - name: Setup Java 17
-        uses: actions/setup-java@v5
+        uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
@@ -23,21 +28,25 @@ jobs:
 
       - name: Install Android SDK
         run: |
-          yes | sdkmanager --licenses || true
-          sdkmanager \
-            "platform-tools" \
-            "platforms;android-35" \
-            "build-tools;35.0.0"
+          sdkmanager "platform-tools"
+          sdkmanager "platforms;android-35"
+          sdkmanager "build-tools;35.0.0"
 
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
-          gradle-version: '8.11.1'
+          gradle-version: 8.11.1
+
+      # ---------------------------------------------------------
+      # CREATE JARVIS V4 PROJECT
+      # ---------------------------------------------------------
 
       - name: Create JARVIS V4 project
+        shell: bash
         run: |
+          set -e
 
-          mkdir -p JARVIS_V4/app/src/main/java/com/jarvis/v4
+          rm -rf JARVIS_V4
 
           mkdir -p JARVIS_V4/app/src/main/java/com/jarvis/v4/ai
           mkdir -p JARVIS_V4/app/src/main/java/com/jarvis/v4/voice
@@ -53,7 +62,6 @@ jobs:
           mkdir -p JARVIS_V4/app/src/main/java/com/jarvis/v4/developer
           mkdir -p JARVIS_V4/app/src/main/java/com/jarvis/v4/modes
           mkdir -p JARVIS_V4/app/src/main/java/com/jarvis/v4/ui
-
           mkdir -p JARVIS_V4/app/src/main/res/values
 
           cat > JARVIS_V4/settings.gradle.kts <<'EOF'
@@ -66,10 +74,7 @@ jobs:
           }
 
           dependencyResolutionManagement {
-              repositoriesMode.set(
-                  RepositoriesMode.FAIL_ON_PROJECT_REPOS
-              )
-
+              repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
               repositories {
                   google()
                   mavenCentral()
@@ -77,19 +82,18 @@ jobs:
           }
 
           rootProject.name = "JARVIS_V4"
-
           include(":app")
           EOF
 
           cat > JARVIS_V4/build.gradle.kts <<'EOF'
           plugins {
-              id("com.android.application") version "8.10.1" apply false
-              id("org.jetbrains.kotlin.android") version "2.2.0" apply false
+              id("com.android.application") version "8.7.3" apply false
+              id("org.jetbrains.kotlin.android") version "2.0.21" apply false
           }
           EOF
 
           cat > JARVIS_V4/gradle.properties <<'EOF'
-          org.gradle.jvmargs=-Xmx4096m -Dfile.encoding=UTF-8
+          org.gradle.jvmargs=-Xmx4g -Dfile.encoding=UTF-8
           android.useAndroidX=true
           kotlin.code.style=official
           EOF
@@ -102,23 +106,17 @@ jobs:
 
           android {
               namespace = "com.jarvis.v4"
-
               compileSdk = 35
 
               defaultConfig {
                   applicationId = "com.jarvis.v4"
-
                   minSdk = 26
-
                   targetSdk = 35
-
                   versionCode = 1
-
                   versionName = "4.0"
               }
 
               buildTypes {
-
                   debug {
                       isMinifyEnabled = false
                   }
@@ -129,12 +127,8 @@ jobs:
               }
 
               compileOptions {
-
-                  sourceCompatibility =
-                      JavaVersion.VERSION_17
-
-                  targetCompatibility =
-                      JavaVersion.VERSION_17
+                  sourceCompatibility = JavaVersion.VERSION_17
+                  targetCompatibility = JavaVersion.VERSION_17
               }
 
               kotlinOptions {
@@ -147,58 +141,46 @@ jobs:
           }
 
           dependencies {
+              implementation("androidx.core:core-ktx:1.16.0")
+              implementation("androidx.appcompat:appcompat:1.7.0")
+              implementation("com.google.android.material:material:1.12.0")
+              implementation("androidx.activity:activity-ktx:1.10.1")
 
-              implementation(
-                  "androidx.core:core-ktx:1.16.0"
-              )
+              implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")
 
-              implementation(
-                  "androidx.appcompat:appcompat:1.7.0"
-              )
-
-              implementation(
-                  "com.google.android.material:material:1.12.0"
-              )
-
-              implementation(
-                  "androidx.activity:activity-ktx:1.10.1"
-              )
+              implementation("com.google.ai.edge.litertlm:litertlm-android:0.16.1")
           }
           EOF
 
+          cat > JARVIS_V4/app/src/main/res/values/styles.xml <<'EOF'
+          <resources>
+              <style name="Theme.JarvisV4" parent="android:style/Theme.Material.Light.NoActionBar">
+                  <item name="android:fontFamily">sans</item>
+                  <item name="android:windowLightStatusBar">false</item>
+                  <item name="android:statusBarColor">#000000</item>
+                  <item name="android:navigationBarColor">#000000</item>
+              </style>
+          </resources>
+          EOF
+
           cat > JARVIS_V4/app/src/main/AndroidManifest.xml <<'EOF'
-          <?xml version="1.0" encoding="utf-8"?>
+          <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
-          <manifest
-              xmlns:android="http://schemas.android.com/apk/res/android">
-
-              <uses-permission
-                  android:name="android.permission.INTERNET" />
-
-              <uses-permission
-                  android:name="android.permission.RECORD_AUDIO" />
-
-              <uses-permission
-                  android:name="android.permission.CAMERA" />
+              <uses-permission android:name="android.permission.INTERNET" />
 
               <application
                   android:allowBackup="true"
                   android:label="JARVIS V4"
                   android:supportsRtl="true"
-                  android:theme="@style/AppTheme">
+                  android:theme="@style/Theme.JarvisV4">
 
                   <activity
                       android:name=".MainActivity"
                       android:exported="true">
 
                       <intent-filter>
-
-                          <action
-                              android:name="android.intent.action.MAIN" />
-
-                          <category
-                              android:name="android.intent.category.LAUNCHER" />
-
+                          <action android:name="android.intent.action.MAIN" />
+                          <category android:name="android.intent.category.LAUNCHER" />
                       </intent-filter>
 
                   </activity>
@@ -208,163 +190,286 @@ jobs:
           </manifest>
           EOF
 
-          cat > JARVIS_V4/app/src/main/res/values/styles.xml <<'EOF'
-          <?xml version="1.0" encoding="utf-8"?>
-
-          <resources>
-
-              <style
-                  name="AppTheme"
-                  parent="android:style/Theme.Material.NoActionBar">
-
-                  <item name="android:fontFamily">
-                      sans
-                  </item>
-
-                  <item name="android:windowLightStatusBar">
-                      false
-                  </item>
-
-                  <item name="android:statusBarColor">
-                      #000000
-                  </item>
-
-                  <item name="android:navigationBarColor">
-                      #000000
-                  </item>
-
-              </style>
-
-          </resources>
-          EOF
-
-      - name: Create JARVIS V4 module files
-        run: |
+          # ---------------------------------------------------------
+          # MAIN ACTIVITY
+          # ---------------------------------------------------------
 
           cat > JARVIS_V4/app/src/main/java/com/jarvis/v4/MainActivity.kt <<'EOF'
           package com.jarvis.v4
 
           import android.os.Bundle
           import android.widget.TextView
-          import androidx.activity.ComponentActivity
+          import androidx.appcompat.app.AppCompatActivity
 
-          class MainActivity : ComponentActivity() {
+          class MainActivity : AppCompatActivity() {
 
-              override fun onCreate(
-                  savedInstanceState: Bundle?
-              ) {
+              override fun onCreate(savedInstanceState: Bundle?) {
                   super.onCreate(savedInstanceState)
 
-                  val screen =
-                      TextView(this).apply {
+                  val textView = TextView(this)
 
-                          text = """
-                              JARVIS V4
+                  textView.text = """
+                      JARVIS V4
 
-                              Multi-AI Personal Assistant
+                      System initialized.
 
-                              Local AI: Gemma
-                              Cloud AI: 10+ Providers
-                              Voice System
-                              Memory System
-                              Android Control
+                      Local AI:
+                      Gemma 4 E2B
 
-                              SYSTEM READY
-                          """.trimIndent()
+                      Status:
+                      Ready
+                  """.trimIndent()
 
-                          textSize = 20f
+                  textView.textSize = 20f
+                  textView.setPadding(40, 80, 40, 40)
 
-                          setPadding(
-                              40,
-                              80,
-                              40,
-                              40
-                          )
-                      }
-
-                  setContentView(screen)
+                  setContentView(textView)
               }
           }
           EOF
 
+          # ---------------------------------------------------------
+          # LOCAL AI
+          # ---------------------------------------------------------
+
+          cat > JARVIS_V4/app/src/main/java/com/jarvis/v4/ai/LocalAI.kt <<'EOF'
+          package com.jarvis.v4.ai
+
+          import android.content.Context
+          import com.google.ai.edge.litertlm.Backend
+          import com.google.ai.edge.litertlm.Conversation
+          import com.google.ai.edge.litertlm.Engine
+          import com.google.ai.edge.litertlm.EngineConfig
+          import kotlinx.coroutines.Dispatchers
+          import kotlinx.coroutines.flow.collect
+          import kotlinx.coroutines.withContext
+          import java.io.File
+
+          class LocalAI(
+              private val context: Context
+          ) {
+
+              companion object {
+                  private const val MODEL_NAME = "gemma-4-E2B-it.litertlm"
+                  private const val MODEL_DIRECTORY = "litert_models"
+                  private const val MAX_OUTPUT_TOKENS = 1024
+              }
+
+              private var engine: Engine? = null
+              private var conversation: Conversation? = null
+              private var initialized = false
+
+              private val modelFile: File
+                  get() = File(
+                      File(context.filesDir, MODEL_DIRECTORY),
+                      MODEL_NAME
+                  )
+
+              suspend fun initialize(): Result<String> =
+                  withContext(Dispatchers.IO) {
+
+                      if (initialized) {
+                          return@withContext Result.success(
+                              "Local Gemma is already ready."
+                          )
+                      }
+
+                      if (!modelFile.exists()) {
+                          return@withContext Result.failure(
+                              Exception(
+                                  """
+                                  Local Gemma model is not installed.
+
+                                  Required:
+                                  $MODEL_NAME
+
+                                  Expected location:
+                                  ${modelFile.absolutePath}
+                                  """.trimIndent()
+                              )
+                          )
+                      }
+
+                      try {
+                          val config = EngineConfig(
+                              modelPath = modelFile.absolutePath,
+                              backend = Backend.CPU(),
+                              cacheDir = File(
+                                  context.cacheDir,
+                                  "litert_lm"
+                              ).absolutePath
+                          )
+
+                          val newEngine = Engine(config)
+
+                          newEngine.initialize()
+
+                          engine = newEngine
+
+                          conversation =
+                              newEngine.createConversation()
+
+                          initialized = true
+
+                          Result.success(
+                              "Local Gemma is ready."
+                          )
+
+                      } catch (e: Exception) {
+
+                          try {
+                              engine?.close()
+                          } catch (_: Exception) {
+                          }
+
+                          engine = null
+                          conversation = null
+                          initialized = false
+
+                          Result.failure(
+                              Exception(
+                                  "Local AI initialization failed: ${
+                                      e.message ?: "Unknown error"
+                                  }"
+                              )
+                          )
+                      }
+                  }
+
+              suspend fun ask(prompt: String): Result<String> =
+                  withContext(Dispatchers.IO) {
+
+                      if (prompt.isBlank()) {
+                          return@withContext Result.failure(
+                              Exception("Prompt is empty.")
+                          )
+                      }
+
+                      if (!initialized) {
+                          val result = initialize()
+
+                          if (result.isFailure) {
+                              return@withContext Result.failure(
+                                  result.exceptionOrNull()
+                                      ?: Exception("Local AI initialization failed.")
+                              )
+                          }
+                      }
+
+                      try {
+
+                          val currentConversation =
+                              conversation
+                                  ?: return@withContext Result.failure(
+                                      Exception("Conversation is unavailable.")
+                                  )
+
+                          val fullPrompt = """
+                              You are JARVIS, a personal AI assistant.
+
+                              Answer naturally and concisely.
+
+                              The user may speak:
+                              English, Hindi, or Hinglish.
+
+                              Keep answers suitable for a voice assistant.
+
+                              User:
+                              $prompt
+                          """.trimIndent()
+
+                          val response = StringBuilder()
+
+                          currentConversation
+                              .sendMessageAsync(
+                                  fullPrompt,
+                                  maxOutputToken = MAX_OUTPUT_TOKENS
+                              )
+                              .collect { message ->
+                                  response.append(message.toString())
+                              }
+
+                          val answer =
+                              response.toString().trim()
+
+                          if (answer.isBlank()) {
+                              return@withContext Result.failure(
+                                  Exception(
+                                      "Local Gemma returned an empty response."
+                                  )
+                              )
+                          }
+
+                          Result.success(answer)
+
+                      } catch (e: Exception) {
+
+                          Result.failure(
+                              Exception(
+                                  "Local AI error: ${
+                                      e.message ?: "Unknown error"
+                                  }"
+                              )
+                          )
+                      }
+                  }
+
+              fun isModelInstalled(): Boolean {
+                  return modelFile.exists()
+              }
+
+              fun getModelPath(): String {
+                  return modelFile.absolutePath
+              }
+
+              fun getModelSizeBytes(): Long {
+                  return if (modelFile.exists()) {
+                      modelFile.length()
+                  } else {
+                      0L
+                  }
+              }
+
+              fun close() {
+
+                  try {
+                      conversation?.close()
+                  } catch (_: Exception) {
+                  }
+
+                  try {
+                      engine?.close()
+                  } catch (_: Exception) {
+                  }
+
+                  conversation = null
+                  engine = null
+                  initialized = false
+              }
+          }
+          EOF
+
+          # ---------------------------------------------------------
+          # AI PLACEHOLDERS
+          # ---------------------------------------------------------
+
           cat > JARVIS_V4/app/src/main/java/com/jarvis/v4/ai/AIProvider.kt <<'EOF'
           package com.jarvis.v4.ai
 
-          enum class AIProvider {
-
-              LOCAL_GEMMA,
-
-              GEMINI,
-
-              CLAUDE,
-
-              GROQ,
-
-              OPENROUTER,
-
-              MISTRAL,
-
-              HUGGING_FACE,
-
-              CLOUDFLARE,
-
-              CEREBRAS,
-
-              TOGETHER,
-
-              DEEPSEEK,
-
-              GPT
+          interface AIProvider {
+              suspend fun ask(prompt: String): Result<String>
           }
           EOF
 
           cat > JARVIS_V4/app/src/main/java/com/jarvis/v4/ai/AIRouter.kt <<'EOF'
           package com.jarvis.v4.ai
 
-          class AIRouter {
+          class AIRouter(
+              private val localAI: LocalAI
+          ) {
 
-              fun selectProvider(
-                  request: String
-              ): AIProvider {
-
-                  val text =
-                      request.lowercase()
-
-                  return when {
-
-                      text.contains("latest") ||
-                      text.contains("news") ||
-                      text.contains("today") ->
-                          AIProvider.GEMINI
-
-                      text.contains("code") ||
-                      text.contains("program") ->
-                          AIProvider.CLAUDE
-
-                      text.length < 80 ->
-                          AIProvider.LOCAL_GEMMA
-
-                      else ->
-                          AIProvider.GEMINI
-                  }
-              }
-          }
-          EOF
-
-          cat > JARVIS_V4/app/src/main/java/com/jarvis/v4/ai/LocalAI.kt <<'EOF'
-          package com.jarvis.v4.ai
-
-          class LocalAI {
-
-              suspend fun ask(
-                  prompt: String
-              ): Result<String> {
-
-                  return Result.failure(
-                      Exception(
-                          "Local Gemma engine is not installed yet."
-                      )
-                  )
+              suspend fun ask(prompt: String): Result<String> {
+                  return localAI.ask(prompt)
               }
           }
           EOF
@@ -372,16 +477,10 @@ jobs:
           cat > JARVIS_V4/app/src/main/java/com/jarvis/v4/ai/ClaudeAI.kt <<'EOF'
           package com.jarvis.v4.ai
 
-          class ClaudeAI {
-
-              suspend fun ask(
-                  prompt: String
-              ): Result<String> {
-
+          class ClaudeAI : AIProvider {
+              override suspend fun ask(prompt: String): Result<String> {
                   return Result.failure(
-                      Exception(
-                          "Claude API is not configured yet."
-                      )
+                      Exception("Claude provider not configured yet.")
                   )
               }
           }
@@ -390,20 +489,18 @@ jobs:
           cat > JARVIS_V4/app/src/main/java/com/jarvis/v4/ai/GeminiAI.kt <<'EOF'
           package com.jarvis.v4.ai
 
-          class GeminiAI {
-
-              suspend fun ask(
-                  prompt: String
-              ): Result<String> {
-
+          class GeminiAI : AIProvider {
+              override suspend fun ask(prompt: String): Result<String> {
                   return Result.failure(
-                      Exception(
-                          "Gemini API is not configured yet."
-                      )
+                      Exception("Gemini provider not configured yet.")
                   )
               }
           }
           EOF
+
+          # ---------------------------------------------------------
+          # VOICE
+          # ---------------------------------------------------------
 
           cat > JARVIS_V4/app/src/main/java/com/jarvis/v4/voice/VoiceInput.kt <<'EOF'
           package com.jarvis.v4.voice
@@ -417,17 +514,29 @@ jobs:
           class VoiceOutput
           EOF
 
+          # ---------------------------------------------------------
+          # CORE
+          # ---------------------------------------------------------
+
           cat > JARVIS_V4/app/src/main/java/com/jarvis/v4/core/JarvisCore.kt <<'EOF'
           package com.jarvis.v4.core
 
           class JarvisCore
           EOF
 
+          # ---------------------------------------------------------
+          # ACTIONS
+          # ---------------------------------------------------------
+
           cat > JARVIS_V4/app/src/main/java/com/jarvis/v4/actions/ActionEngine.kt <<'EOF'
           package com.jarvis.v4.actions
 
           class ActionEngine
           EOF
+
+          # ---------------------------------------------------------
+          # MEMORY
+          # ---------------------------------------------------------
 
           cat > JARVIS_V4/app/src/main/java/com/jarvis/v4/memory/ConversationMemory.kt <<'EOF'
           package com.jarvis.v4.memory
@@ -453,6 +562,10 @@ jobs:
           class MemoryStorage
           EOF
 
+          # ---------------------------------------------------------
+          # PHONE
+          # ---------------------------------------------------------
+
           cat > JARVIS_V4/app/src/main/java/com/jarvis/v4/phone/PhoneControl.kt <<'EOF'
           package com.jarvis.v4.phone
 
@@ -465,11 +578,19 @@ jobs:
           class AppControl
           EOF
 
+          # ---------------------------------------------------------
+          # CALLS
+          # ---------------------------------------------------------
+
           cat > JARVIS_V4/app/src/main/java/com/jarvis/v4/calls/CallControl.kt <<'EOF'
           package com.jarvis.v4.calls
 
           class CallControl
           EOF
+
+          # ---------------------------------------------------------
+          # NOTIFICATIONS
+          # ---------------------------------------------------------
 
           cat > JARVIS_V4/app/src/main/java/com/jarvis/v4/notifications/NotificationReader.kt <<'EOF'
           package com.jarvis.v4.notifications
@@ -477,11 +598,19 @@ jobs:
           class NotificationReader
           EOF
 
+          # ---------------------------------------------------------
+          # CAMERA
+          # ---------------------------------------------------------
+
           cat > JARVIS_V4/app/src/main/java/com/jarvis/v4/camera/CameraControl.kt <<'EOF'
           package com.jarvis.v4.camera
 
           class CameraControl
           EOF
+
+          # ---------------------------------------------------------
+          # SCHEDULER
+          # ---------------------------------------------------------
 
           cat > JARVIS_V4/app/src/main/java/com/jarvis/v4/scheduler/JarvisScheduler.kt <<'EOF'
           package com.jarvis.v4.scheduler
@@ -489,11 +618,19 @@ jobs:
           class JarvisScheduler
           EOF
 
+          # ---------------------------------------------------------
+          # BACKGROUND
+          # ---------------------------------------------------------
+
           cat > JARVIS_V4/app/src/main/java/com/jarvis/v4/background/JarvisService.kt <<'EOF'
           package com.jarvis.v4.background
 
           class JarvisService
           EOF
+
+          # ---------------------------------------------------------
+          # DEVELOPER
+          # ---------------------------------------------------------
 
           cat > JARVIS_V4/app/src/main/java/com/jarvis/v4/developer/CodeAnalyzer.kt <<'EOF'
           package com.jarvis.v4.developer
@@ -525,11 +662,19 @@ jobs:
           class ApprovalManager
           EOF
 
+          # ---------------------------------------------------------
+          # MODES
+          # ---------------------------------------------------------
+
           cat > JARVIS_V4/app/src/main/java/com/jarvis/v4/modes/ModeManager.kt <<'EOF'
           package com.jarvis.v4.modes
 
           class ModeManager
           EOF
+
+          # ---------------------------------------------------------
+          # UI
+          # ---------------------------------------------------------
 
           cat > JARVIS_V4/app/src/main/java/com/jarvis/v4/ui/JarvisUI.kt <<'EOF'
           package com.jarvis.v4.ui
@@ -549,18 +694,54 @@ jobs:
           class JarvisTheme
           EOF
 
-      - name: Verify JARVIS V4
+      # ---------------------------------------------------------
+      # VERIFY FILES
+      # ---------------------------------------------------------
+
+      - name: Verify JARVIS V4 files
         run: |
           echo "===== JARVIS V4 STRUCTURE ====="
           find JARVIS_V4 -type f | sort
+          echo "================================"
+
+      # ---------------------------------------------------------
+      # BUILD APK
+      # ---------------------------------------------------------
 
       - name: Build JARVIS V4 APK
         working-directory: JARVIS_V4
         run: |
-          gradle assembleDebug --no-daemon
+          gradle wrapper --gradle-version 8.11.1
+          ./gradlew assembleDebug --stacktrace
+
+      # ---------------------------------------------------------
+      # SAVE GENERATED FILES TO GITHUB
+      # ---------------------------------------------------------
+
+      - name: Commit generated JARVIS V4 project
+        shell: bash
+        run: |
+          set -e
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add JARVIS_V4
+
+          if git diff --cached --quiet; then
+            echo "No new JARVIS V4 files to commit."
+          else
+            git commit -m "Generate JARVIS V4 project"
+            git push
+          fi
+
+      # ---------------------------------------------------------
+      # UPLOAD APK
+      # ---------------------------------------------------------
 
       - name: Upload JARVIS V4 APK
         uses: actions/upload-artifact@v4
         with:
           name: JARVIS-V4-APK
           path: JARVIS_V4/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
