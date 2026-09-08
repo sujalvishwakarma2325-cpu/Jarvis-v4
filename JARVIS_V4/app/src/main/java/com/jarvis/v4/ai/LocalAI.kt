@@ -14,37 +14,27 @@ class LocalAI(
     private val context: Context
 ) {
 
-    companion object {
-        private const val MODEL_NAME =
-            "gemma-4-E2B-it.litertlm"
+    private var engine: Engine? =
+        null
 
-        private const val MODEL_DIRECTORY =
-            "litert_models"
-    }
-
-    private var engine: Engine? = null
-    private var conversation: Conversation? = null
-    private var initialized = false
+    private var conversation:
+        Conversation? = null
 
     private val modelFile: File
         get() = File(
             File(
                 context.filesDir,
-                MODEL_DIRECTORY
+                "litert_models"
             ),
-            MODEL_NAME
+            ModelDownloader.MODEL_NAME
         )
 
-    suspend fun initialize(): Result<String> =
+    suspend fun initialize():
+        Result<String> =
         withContext(Dispatchers.IO) {
 
-            if (initialized) {
-                return@withContext Result.success(
-                    "Local Gemma is already ready."
-                )
-            }
-
             if (!modelFile.exists()) {
+
                 return@withContext Result.failure(
                     Exception(
                         "Gemma model is not installed."
@@ -54,23 +44,24 @@ class LocalAI(
 
             try {
 
-                val config = EngineConfig(
-                    modelPath =
-                        modelFile.absolutePath,
-                    backend = Backend.CPU()
-                )
-
                 val newEngine =
-                    Engine(config)
+                    Engine(
+                        EngineConfig(
+                            modelPath =
+                                modelFile.absolutePath,
+                            backend =
+                                Backend.CPU()
+                        )
+                    )
 
                 newEngine.initialize()
 
-                engine = newEngine
+                engine =
+                    newEngine
 
                 conversation =
-                    newEngine.createConversation()
-
-                initialized = true
+                    newEngine
+                        .createConversation()
 
                 Result.success(
                     "Local Gemma is ready."
@@ -78,22 +69,12 @@ class LocalAI(
 
             } catch (e: Exception) {
 
-                try {
-                    engine?.close()
-                } catch (_: Exception) {
-                }
-
-                engine = null
-                conversation = null
-                initialized = false
+                close()
 
                 Result.failure(
                     Exception(
-                        "Local AI initialization failed: " +
-                            (
-                                e.message
-                                    ?: "Unknown error"
-                            )
+                        e.message
+                            ?: "Local AI failed."
                     )
                 )
             }
@@ -104,20 +85,17 @@ class LocalAI(
     ): Result<String> =
         withContext(Dispatchers.IO) {
 
-            if (prompt.isBlank()) {
-                return@withContext Result.failure(
-                    Exception("Prompt is empty.")
-                )
-            }
+            if (conversation == null) {
 
-            if (!initialized) {
-                val result = initialize()
+                val init =
+                    initialize()
 
-                if (result.isFailure) {
+                if (init.isFailure) {
+
                     return@withContext Result.failure(
-                        result.exceptionOrNull()
+                        init.exceptionOrNull()
                             ?: Exception(
-                                "Local AI initialization failed."
+                                "Local AI failed."
                             )
                     )
                 }
@@ -125,70 +103,32 @@ class LocalAI(
 
             try {
 
-                val currentConversation =
-                    conversation
-                        ?: return@withContext Result.failure(
-                            Exception(
-                                "Conversation is unavailable."
-                            )
-                        )
-
-                val fullPrompt = """
-                    You are JARVIS, a personal AI assistant.
-
-                    Answer naturally and concisely.
-
-                    The user may speak English,
-                    Hindi, or Hinglish.
-
-                    Keep answers suitable
-                    for a voice assistant.
-
-                    User:
-                    $prompt
-                """.trimIndent()
-
-                val response =
+                val output =
                     StringBuilder()
 
-                currentConversation
-                    .sendMessageAsync(fullPrompt)
+                conversation!!
+                    .sendMessageAsync(prompt)
                     .collect { message ->
-                        response.append(
+
+                        output.append(
                             message.toString()
                         )
                     }
 
-                val answer =
-                    response.toString().trim()
-
-                if (answer.isBlank()) {
-                    return@withContext Result.failure(
-                        Exception(
-                            "Local Gemma returned an empty response."
-                        )
-                    )
-                }
-
-                Result.success(answer)
+                Result.success(
+                    output.toString().trim()
+                )
 
             } catch (e: Exception) {
 
                 Result.failure(
                     Exception(
-                        "Local AI error: " +
-                            (
-                                e.message
-                                    ?: "Unknown error"
-                            )
-                  )
+                        e.message
+                            ?: "Local AI error."
+                    )
                 )
             }
         }
-
-    fun isModelInstalled(): Boolean {
-        return modelFile.exists()
-    }
 
     fun close() {
 
@@ -202,8 +142,10 @@ class LocalAI(
         } catch (_: Exception) {
         }
 
-        conversation = null
-        engine = null
-        initialized = false
+        conversation =
+            null
+
+        engine =
+            null
     }
 }

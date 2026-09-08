@@ -1,5 +1,6 @@
 package com.jarvis.v4
 
+import android.app.Activity
 import android.graphics.Color
 import android.os.Bundle
 import android.view.Gravity
@@ -8,37 +9,59 @@ import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.ProgressBar
 import android.widget.TextView
-import androidx.appcompat.app.AppCompatActivity
-import androidx.lifecycle.lifecycleScope
 import com.jarvis.v4.ai.ModelDownloader
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import java.util.Locale
 
-class MainActivity : AppCompatActivity() {
+class MainActivity : Activity() {
 
-    private lateinit var downloader: ModelDownloader
+    private lateinit var downloader:
+        ModelDownloader
 
-    private lateinit var title: TextView
-    private lateinit var subtitle: TextView
-    private lateinit var status: TextView
-    private lateinit var progress: ProgressBar
-    private lateinit var details: TextView
-    private lateinit var button: Button
+    private lateinit var status:
+        TextView
+
+    private lateinit var details:
+        TextView
+
+    private lateinit var progress:
+        ProgressBar
+
+    private lateinit var button:
+        Button
+
+    private var downloadJob:
+        Job? = null
+
+    private val mainScope =
+        CoroutineScope(
+            Dispatchers.Main +
+                SupervisorJob()
+        )
 
     override fun onCreate(
         savedInstanceState: Bundle?
     ) {
-        super.onCreate(savedInstanceState)
+        super.onCreate(
+            savedInstanceState
+        )
 
         downloader =
             ModelDownloader(this)
 
         createScreen()
 
-        if (downloader.isInstalled()) {
+        if (
+            downloader.isInstalled()
+        ) {
             showInstalled()
         } else {
-            showDownloadReady()
+            showReady()
         }
     }
 
@@ -55,7 +78,7 @@ class MainActivity : AppCompatActivity() {
 
         root.setPadding(
             40,
-            80,
+            70,
             40,
             40
         )
@@ -64,7 +87,7 @@ class MainActivity : AppCompatActivity() {
             Color.rgb(5, 8, 12)
         )
 
-        title =
+        val title =
             TextView(this)
 
         title.text =
@@ -73,12 +96,12 @@ class MainActivity : AppCompatActivity() {
         title.textSize =
             34f
 
+        title.gravity =
+            Gravity.CENTER
+
         title.setTextColor(
             Color.WHITE
         )
-
-        title.gravity =
-            Gravity.CENTER
 
         root.addView(
             title,
@@ -88,7 +111,7 @@ class MainActivity : AppCompatActivity() {
             )
         )
 
-        subtitle =
+        val subtitle =
             TextView(this)
 
         subtitle.text =
@@ -97,12 +120,16 @@ class MainActivity : AppCompatActivity() {
         subtitle.textSize =
             18f
 
-        subtitle.setTextColor(
-            Color.rgb(0, 210, 255)
-        )
-
         subtitle.gravity =
             Gravity.CENTER
+
+        subtitle.setTextColor(
+            Color.rgb(
+                0,
+                210,
+                255
+            )
+        )
 
         val subtitleParams =
             LinearLayout.LayoutParams(
@@ -124,12 +151,12 @@ class MainActivity : AppCompatActivity() {
         status.textSize =
             22f
 
+        status.gravity =
+            Gravity.CENTER
+
         status.setTextColor(
             Color.WHITE
         )
-
-        status.gravity =
-            Gravity.CENTER
 
         val statusParams =
             LinearLayout.LayoutParams(
@@ -149,12 +176,15 @@ class MainActivity : AppCompatActivity() {
             ProgressBar(
                 this,
                 null,
-                android.R.attr.progressBarStyleHorizontal
+                android.R.attr
+                    .progressBarStyleHorizontal
             )
 
-        progress.max = 100
+        progress.max =
+            100
 
-        progress.progress = 0
+        progress.progress =
+            0
 
         val progressParams =
             LinearLayout.LayoutParams(
@@ -176,12 +206,12 @@ class MainActivity : AppCompatActivity() {
         details.textSize =
             15f
 
+        details.gravity =
+            Gravity.CENTER
+
         details.setTextColor(
             Color.LTGRAY
         )
-
-        details.gravity =
-            Gravity.CENTER
 
         val detailsParams =
             LinearLayout.LayoutParams(
@@ -200,9 +230,6 @@ class MainActivity : AppCompatActivity() {
         button =
             Button(this)
 
-        button.text =
-            "DOWNLOAD & INSTALL"
-
         val buttonParams =
             LinearLayout.LayoutParams(
                 -1,
@@ -220,14 +247,14 @@ class MainActivity : AppCompatActivity() {
         setContentView(root)
     }
 
-    private fun showDownloadReady() {
+    private fun showReady() {
 
         status.text =
             "Gemma 4 E2B"
 
         details.text =
             "2.58 GB • On-device AI\n" +
-                "Private local inference"
+            "Private local inference"
 
         progress.visibility =
             View.VISIBLE
@@ -257,63 +284,63 @@ class MainActivity : AppCompatActivity() {
         details.text =
             "Please keep JARVIS open."
 
-        lifecycleScope.launch {
+        downloadJob =
+            mainScope.launch {
 
-            val result =
-                downloader.download { data ->
+                val result =
+                    downloader.download {
 
-                    runOnUiThread {
+                        data ->
 
-                        progress.progress =
-                            data.percent
+                        runOnUiThread {
 
-                        status.text =
-                            "Downloading Gemma..."
+                            progress.progress =
+                                data.percent
 
-                        val downloaded =
-                            formatBytes(
-                                data.downloaded
-                            )
+                            status.text =
+                                "Downloading Gemma..."
 
-                        val total =
-                            if (data.total > 0L) {
-                                formatBytes(
+                            details.text =
+                                data.percent
+                                    .toString() +
+                                "%\n" +
+                                format(
+                                    data.downloaded
+                                ) +
+                                " / " +
+                                format(
                                     data.total
-                                )
-                            } else {
-                                "Unknown"
-                            }
-
-                        val speed =
-                            formatBytes(
-                                data.speedBytesPerSecond
-                            )
-
-                        details.text =
-                            "${data.percent}%\n" +
-                                "$downloaded / $total\n" +
-                                "$speed/s"
+                                ) +
+                                "\n" +
+                                format(
+                                    data.speed
+                                ) +
+                                "/s"
+                        }
                     }
+
+                if (
+                    result.isSuccess
+                ) {
+                    showInstalled()
+                } else {
+
+                    button.isEnabled =
+                        true
+
+                    button.text =
+                        "RETRY DOWNLOAD"
+
+                    status.text =
+                        "Download failed"
+
+                    details.text =
+                        result
+                            .exceptionOrNull()
+                            ?.message
+                            ?: "Unknown error"
                 }
-
-            if (result.isSuccess) {
-                showInstalled()
-            } else {
-                button.isEnabled =
-                    true
-
-                button.text =
-                    "RETRY DOWNLOAD"
-
-                status.text =
-                    "Download failed"
-
-                details.text =
-                    result.exceptionOrNull()
-                        ?.message
-                        ?: "Unknown error"
             }
-        }
     }
 
     private fun showInstalled() {
@@ -322,7 +349,11 @@ class MainActivity : AppCompatActivity() {
             "✓ Gemma 4 E2B Installed"
 
         status.setTextColor(
-            Color.rgb(50, 230, 120)
+            Color.rgb(
+                50,
+                230,
+                120
+            )
         )
 
         progress.progress =
@@ -330,7 +361,7 @@ class MainActivity : AppCompatActivity() {
 
         details.text =
             "Local AI is ready.\n" +
-                "Model stored securely on this device."
+            "Model installed on device."
 
         button.text =
             "LOCAL AI READY"
@@ -339,7 +370,7 @@ class MainActivity : AppCompatActivity() {
             false
     }
 
-    private fun formatBytes(
+    private fun format(
         bytes: Long
     ): String {
 
@@ -362,10 +393,13 @@ class MainActivity : AppCompatActivity() {
             0
 
         while (
-            value >= 1024 &&
-            index < units.size - 1
+            value >= 1024.0 &&
+            index <
+                units.size - 1
         ) {
+
             value /= 1024.0
+
             index++
         }
 
@@ -375,5 +409,14 @@ class MainActivity : AppCompatActivity() {
             value,
             units[index]
         )
+    }
+
+    override fun onDestroy() {
+
+        downloadJob?.cancel()
+
+        mainScope.cancel()
+
+        super.onDestroy()
     }
 }

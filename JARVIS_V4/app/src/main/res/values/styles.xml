@@ -1,7 +1,8 @@
 <resources>
+
     <style
         name="Theme.JarvisV4"
-        parent="android:style/Theme.Material.Light.NoActionBar">
+        parent="android:style/Theme.Material.NoActionBar">
 
         <item name="android:fontFamily">sans</item>
         <item name="android:statusBarColor">#050505</item>
@@ -9,4 +10,5 @@
         <item name="android:windowLightStatusBar">false</item>
 
     </style>
+
 </resources>

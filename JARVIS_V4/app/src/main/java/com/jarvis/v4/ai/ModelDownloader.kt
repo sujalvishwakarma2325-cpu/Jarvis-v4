@@ -11,12 +11,17 @@ import java.net.URL
 data class DownloadProgress(
     val downloaded: Long,
     val total: Long,
-    val speedBytesPerSecond: Long
+    val speed: Long
 ) {
     val percent: Int
         get() {
-            if (total <= 0L) return 0
-            return ((downloaded * 100L) / total)
+            if (total <= 0L) {
+                return 0
+            }
+
+            return (
+                (downloaded * 100L) / total
+            )
                 .coerceIn(0L, 100L)
                 .toInt()
         }
@@ -27,25 +32,28 @@ class ModelDownloader(
 ) {
 
     companion object {
+
         const val MODEL_NAME =
             "gemma-4-E2B-it.litertlm"
 
         private const val TEMP_NAME =
             "gemma-4-E2B-it.litertlm.part"
 
-        private const val MODEL_DIRECTORY =
+        private const val DIRECTORY =
             "litert_models"
 
         private const val MODEL_URL =
-            "https://huggingface.co/litert-community/" +
-                "gemma-4-E2B-it-litert-lm/resolve/main/" +
-                "gemma-4-E2B-it.litertlm"
+            "https://huggingface.co/" +
+            "litert-community/" +
+            "gemma-4-E2B-it-litert-lm/" +
+            "resolve/main/" +
+            "gemma-4-E2B-it.litertlm"
     }
 
     private val directory: File
         get() = File(
             context.filesDir,
-            MODEL_DIRECTORY
+            DIRECTORY
         )
 
     val modelFile: File
@@ -65,27 +73,23 @@ class ModelDownloader(
             modelFile.length() > 0L
     }
 
-    fun installedSize(): Long {
-        return if (modelFile.exists()) {
-            modelFile.length()
-        } else {
-            0L
-        }
-    }
-
     suspend fun download(
-        onProgress: suspend (DownloadProgress) -> Unit
+        onProgress:
+            suspend (DownloadProgress) -> Unit
     ): Result<Unit> =
         withContext(Dispatchers.IO) {
 
             try {
+
                 directory.mkdirs()
 
                 if (isInstalled()) {
-                    return@withContext Result.success(Unit)
+                    return@withContext Result.success(
+                        Unit
+                    )
                 }
 
-                var existingBytes =
+                var startByte =
                     if (tempFile.exists()) {
                         tempFile.length()
                     } else {
@@ -93,34 +97,42 @@ class ModelDownloader(
                     }
 
                 var connection =
-                    openConnection(existingBytes)
+                    openConnection(startByte)
 
                 var responseCode =
                     connection.responseCode
 
                 if (
-                    existingBytes > 0L &&
-                    responseCode == HttpURLConnection.HTTP_OK
+                    startByte > 0L &&
+                    responseCode ==
+                        HttpURLConnection.HTTP_OK
                 ) {
+
                     connection.disconnect()
+
                     tempFile.delete()
-                    existingBytes = 0L
-                    connection = openConnection(0L)
-                    responseCode = connection.responseCode
+
+                    startByte = 0L
+
+                    connection =
+                        openConnection(0L)
+
+                    responseCode =
+                        connection.responseCode
                 }
 
                 if (
                     responseCode !=
-                    HttpURLConnection.HTTP_OK &&
+                        HttpURLConnection.HTTP_OK &&
                     responseCode !=
-                    HttpURLConnection.HTTP_PARTIAL
+                        HttpURLConnection.HTTP_PARTIAL
                 ) {
+
                     connection.disconnect()
 
                     return@withContext Result.failure(
                         Exception(
-                            "Download server returned HTTP " +
-                                responseCode
+                            "HTTP error: $responseCode"
                         )
                     )
                 }
@@ -136,7 +148,11 @@ class ModelDownloader(
                         responseCode ==
                             HttpURLConnection.HTTP_PARTIAL
                     ) {
-                        existingBytes + contentLength
+                        if (contentLength > 0L) {
+                            startByte + contentLength
+                        } else {
+                            -1L
+                        }
                     } else {
                         contentLength
                     }
@@ -150,24 +166,30 @@ class ModelDownloader(
                         "rw"
                     )
 
-                if (existingBytes > 0L) {
-                    output.seek(existingBytes)
+                if (startByte > 0L) {
+                    output.seek(startByte)
                 } else {
                     output.setLength(0L)
                 }
 
-                val buffer = ByteArray(1024 * 1024)
+                val buffer =
+                    ByteArray(1024 * 1024)
 
-                var downloaded = existingBytes
-                var lastTime = System.currentTimeMillis()
-                var lastBytes = downloaded
+                var downloaded =
+                    startByte
+
+                var lastBytes =
+                    downloaded
+
+                var lastTime =
+                    System.currentTimeMillis()
 
                 while (true) {
 
                     val count =
                         input.read(buffer)
 
-                    if (count == -1) {
+                    if (count < 0) {
                         break
                     }
 
@@ -185,15 +207,17 @@ class ModelDownloader(
                     if (
                         now - lastTime >= 500L
                     ) {
+
                         val elapsed =
                             now - lastTime
 
                         val speed =
                             if (elapsed > 0L) {
                                 (
-                                    (downloaded -
-                                        lastBytes) *
-                                        1000L
+                                    (
+                                        downloaded -
+                                            lastBytes
+                                    ) * 1000L
                                 ) / elapsed
                             } else {
                                 0L
@@ -201,36 +225,43 @@ class ModelDownloader(
 
                         onProgress(
                             DownloadProgress(
-                                downloaded = downloaded,
-                                total = totalBytes,
-                                speedBytesPerSecond = speed
+                                downloaded,
+                                totalBytes,
+                                speed
                             )
                         )
 
-                        lastTime = now
-                        lastBytes = downloaded
+                        lastBytes =
+                            downloaded
+
+                        lastTime =
+                            now
                     }
                 }
 
                 output.close()
+
                 input.close()
+
                 connection.disconnect()
 
                 if (
                     totalBytes > 0L &&
                     downloaded < totalBytes
                 ) {
+
                     return@withContext Result.failure(
                         Exception(
-                            "Download ended before completion."
+                            "Download incomplete."
                         )
                     )
                 }
 
                 if (downloaded <= 0L) {
+
                     return@withContext Result.failure(
                         Exception(
-                            "Downloaded model is empty."
+                            "Downloaded file is empty."
                         )
                     )
                 }
@@ -239,19 +270,24 @@ class ModelDownloader(
                     modelFile.delete()
                 }
 
-                if (!tempFile.renameTo(modelFile)) {
+                if (
+                    !tempFile.renameTo(
+                        modelFile
+                    )
+                ) {
+
                     return@withContext Result.failure(
                         Exception(
-                            "Could not install downloaded model."
+                            "Model installation failed."
                         )
                     )
                 }
 
                 onProgress(
                     DownloadProgress(
-                        downloaded = downloaded,
-                        total = downloaded,
-                        speedBytesPerSecond = 0L
+                        downloaded,
+                        downloaded,
+                        0L
                     )
                 )
 
@@ -277,11 +313,17 @@ class ModelDownloader(
                 .openConnection()
                 as HttpURLConnection
 
-        connection.connectTimeout = 30000
-        connection.readTimeout = 30000
-        connection.instanceFollowRedirects = true
+        connection.connectTimeout =
+            30000
+
+        connection.readTimeout =
+            30000
+
+        connection.instanceFollowRedirects =
+            true
 
         if (startByte > 0L) {
+
             connection.setRequestProperty(
                 "Range",
                 "bytes=$startByte-"
@@ -291,11 +333,5 @@ class ModelDownloader(
         connection.connect()
 
         return connection
-    }
-
-    fun deletePartialDownload() {
-        if (tempFile.exists()) {
-            tempFile.delete()
-        }
     }
 }
