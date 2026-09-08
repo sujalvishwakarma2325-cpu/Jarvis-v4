@@ -14,6 +14,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+
       - name: Checkout repository
         uses: actions/checkout@v4
 
@@ -45,6 +46,7 @@ jobs:
           rm -rf JARVIS_V4
 
           mkdir -p JARVIS_V4/app/src/main/java/com/jarvis/v4/ai
+          mkdir -p JARVIS_V4/app/src/main/java/com/jarvis/v4
           mkdir -p JARVIS_V4/app/src/main/res/values
 
           cat > JARVIS_V4/settings.gradle.kts <<'EOF'
@@ -59,7 +61,9 @@ jobs:
           }
 
           dependencyResolutionManagement {
-              repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+              repositoriesMode.set(
+                  RepositoriesMode.FAIL_ON_PROJECT_REPOS
+              )
 
               repositories {
                   google()
@@ -100,8 +104,8 @@ jobs:
                   applicationId = "com.jarvis.v4"
                   minSdk = 26
                   targetSdk = 35
-                  versionCode = 1
-                  versionName = "4.0"
+                  versionCode = 2
+                  versionName = "4.1"
               }
 
               buildTypes {
@@ -161,7 +165,8 @@ jobs:
           EOF
 
           cat > JARVIS_V4/app/src/main/AndroidManifest.xml <<'EOF'
-          <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+          <manifest
+              xmlns:android="http://schemas.android.com/apk/res/android">
 
               <uses-permission
                   android:name="android.permission.INTERNET" />
@@ -193,346 +198,6 @@ jobs:
           </manifest>
           EOF
 
-          cat > JARVIS_V4/app/src/main/java/com/jarvis/v4/ai/ModelDownloader.kt <<'EOF'
-          package com.jarvis.v4.ai
-
-          import android.content.Context
-          import kotlinx.coroutines.Dispatchers
-          import kotlinx.coroutines.withContext
-          import java.io.File
-          import java.io.RandomAccessFile
-          import java.net.HttpURLConnection
-          import java.net.URL
-
-          data class DownloadProgress(
-              val downloaded: Long,
-              val total: Long,
-              val speed: Long
-          ) {
-              val percent: Int
-                  get() {
-                      if (total <= 0L) {
-                          return 0
-                      }
-
-                      return (
-                          (downloaded * 100L) / total
-                      )
-                          .coerceIn(0L, 100L)
-                          .toInt()
-                  }
-          }
-
-          class ModelDownloader(
-              private val context: Context
-          ) {
-
-              companion object {
-
-                  const val MODEL_NAME =
-                      "gemma-4-E2B-it.litertlm"
-
-                  private const val TEMP_NAME =
-                      "gemma-4-E2B-it.litertlm.part"
-
-                  private const val DIRECTORY =
-                      "litert_models"
-
-                  private const val MODEL_URL =
-                      "https://huggingface.co/" +
-                      "litert-community/" +
-                      "gemma-4-E2B-it-litert-lm/" +
-                      "resolve/main/" +
-                      "gemma-4-E2B-it.litertlm"
-              }
-
-              private val directory: File
-                  get() = File(
-                      context.filesDir,
-                      DIRECTORY
-                  )
-
-              val modelFile: File
-                  get() = File(
-                      directory,
-                      MODEL_NAME
-                  )
-
-              private val tempFile: File
-                  get() = File(
-                      directory,
-                      TEMP_NAME
-                  )
-
-              fun isInstalled(): Boolean {
-                  return modelFile.exists() &&
-                      modelFile.length() > 0L
-              }
-
-              suspend fun download(
-                  onProgress:
-                      suspend (DownloadProgress) -> Unit
-              ): Result<Unit> =
-                  withContext(Dispatchers.IO) {
-
-                      try {
-
-                          directory.mkdirs()
-
-                          if (isInstalled()) {
-                              return@withContext Result.success(
-                                  Unit
-                              )
-                          }
-
-                          var startByte =
-                              if (tempFile.exists()) {
-                                  tempFile.length()
-                              } else {
-                                  0L
-                              }
-
-                          var connection =
-                              openConnection(startByte)
-
-                          var responseCode =
-                              connection.responseCode
-
-                          if (
-                              startByte > 0L &&
-                              responseCode ==
-                                  HttpURLConnection.HTTP_OK
-                          ) {
-
-                              connection.disconnect()
-
-                              tempFile.delete()
-
-                              startByte = 0L
-
-                              connection =
-                                  openConnection(0L)
-
-                              responseCode =
-                                  connection.responseCode
-                          }
-
-                          if (
-                              responseCode !=
-                                  HttpURLConnection.HTTP_OK &&
-                              responseCode !=
-                                  HttpURLConnection.HTTP_PARTIAL
-                          ) {
-
-                              connection.disconnect()
-
-                              return@withContext Result.failure(
-                                  Exception(
-                                      "HTTP error: $responseCode"
-                                  )
-                              )
-                          }
-
-                          val contentLength =
-                              connection.getHeaderFieldLong(
-                                  "Content-Length",
-                                  -1L
-                              )
-
-                          val totalBytes =
-                              if (
-                                  responseCode ==
-                                      HttpURLConnection.HTTP_PARTIAL
-                              ) {
-                                  if (contentLength > 0L) {
-                                      startByte + contentLength
-                                  } else {
-                                      -1L
-                                  }
-                              } else {
-                                  contentLength
-                              }
-
-                          val input =
-                              connection.inputStream
-
-                          val output =
-                              RandomAccessFile(
-                                  tempFile,
-                                  "rw"
-                              )
-
-                          if (startByte > 0L) {
-                              output.seek(startByte)
-                          } else {
-                              output.setLength(0L)
-                          }
-
-                          val buffer =
-                              ByteArray(1024 * 1024)
-
-                          var downloaded =
-                              startByte
-
-                          var lastBytes =
-                              downloaded
-
-                          var lastTime =
-                              System.currentTimeMillis()
-
-                          while (true) {
-
-                              val count =
-                                  input.read(buffer)
-
-                              if (count < 0) {
-                                  break
-                              }
-
-                              output.write(
-                                  buffer,
-                                  0,
-                                  count
-                              )
-
-                              downloaded += count
-
-                              val now =
-                                  System.currentTimeMillis()
-
-                              if (
-                                  now - lastTime >= 500L
-                              ) {
-
-                                  val elapsed =
-                                      now - lastTime
-
-                                  val speed =
-                                      if (elapsed > 0L) {
-                                          (
-                                              (
-                                                  downloaded -
-                                                      lastBytes
-                                              ) * 1000L
-                                          ) / elapsed
-                                      } else {
-                                          0L
-                                      }
-
-                                  onProgress(
-                                      DownloadProgress(
-                                          downloaded,
-                                          totalBytes,
-                                          speed
-                                      )
-                                  )
-
-                                  lastBytes =
-                                      downloaded
-
-                                  lastTime =
-                                      now
-                              }
-                          }
-
-                          output.close()
-
-                          input.close()
-
-                          connection.disconnect()
-
-                          if (
-                              totalBytes > 0L &&
-                              downloaded < totalBytes
-                          ) {
-
-                              return@withContext Result.failure(
-                                  Exception(
-                                      "Download incomplete."
-                                  )
-                              )
-                          }
-
-                          if (downloaded <= 0L) {
-
-                              return@withContext Result.failure(
-                                  Exception(
-                                      "Downloaded file is empty."
-                                  )
-                              )
-                          }
-
-                          if (modelFile.exists()) {
-                              modelFile.delete()
-                          }
-
-                          if (
-                              !tempFile.renameTo(
-                                  modelFile
-                              )
-                          ) {
-
-                              return@withContext Result.failure(
-                                  Exception(
-                                      "Model installation failed."
-                                  )
-                              )
-                          }
-
-                          onProgress(
-                              DownloadProgress(
-                                  downloaded,
-                                  downloaded,
-                                  0L
-                              )
-                          )
-
-                          Result.success(Unit)
-
-                      } catch (e: Exception) {
-
-                          Result.failure(
-                              Exception(
-                                  e.message
-                                      ?: "Model download failed."
-                              )
-                          )
-                      }
-                  }
-
-              private fun openConnection(
-                  startByte: Long
-              ): HttpURLConnection {
-
-                  val connection =
-                      URL(MODEL_URL)
-                          .openConnection()
-                          as HttpURLConnection
-
-                  connection.connectTimeout =
-                      30000
-
-                  connection.readTimeout =
-                      30000
-
-                  connection.instanceFollowRedirects =
-                      true
-
-                  if (startByte > 0L) {
-
-                      connection.setRequestProperty(
-                          "Range",
-                          "bytes=$startByte-"
-                      )
-                  }
-
-                  connection.connect()
-
-                  return connection
-              }
-          }
-          EOF
-
           cat > JARVIS_V4/app/src/main/java/com/jarvis/v4/ai/LocalAI.kt <<'EOF'
           package com.jarvis.v4.ai
 
@@ -550,54 +215,76 @@ jobs:
               private val context: Context
           ) {
 
-              private var engine: Engine? =
-                  null
+              companion object {
+
+                  private const val MODEL_NAME =
+                      "gemma-4-E2B-it.litertlm"
+
+                  private const val MODEL_DIRECTORY =
+                      "litert_models"
+              }
+
+              private var engine: Engine? = null
 
               private var conversation:
                   Conversation? = null
+
+              private var initialized = false
 
               private val modelFile: File
                   get() = File(
                       File(
                           context.filesDir,
-                          "litert_models"
+                          MODEL_DIRECTORY
                       ),
-                      ModelDownloader.MODEL_NAME
+                      MODEL_NAME
                   )
 
               suspend fun initialize():
                   Result<String> =
                   withContext(Dispatchers.IO) {
 
-                      if (!modelFile.exists()) {
+                      if (initialized) {
+                          return@withContext Result.success(
+                              "Local Gemma is ready."
+                          )
+                      }
 
+                      if (!modelFile.exists()) {
                           return@withContext Result.failure(
                               Exception(
-                                  "Gemma model is not installed."
+                                  "Gemma model was not found."
                               )
                           )
                       }
 
                       try {
 
-                          val newEngine =
-                              Engine(
-                                  EngineConfig(
-                                      modelPath =
-                                          modelFile.absolutePath,
-                                      backend =
-                                          Backend.CPU()
-                                  )
+                          val config =
+                              EngineConfig(
+                                  modelPath =
+                                      modelFile.absolutePath,
+                                  backend =
+                                      Backend.CPU()
                               )
 
+                          val newEngine =
+                              Engine(config)
+
                           newEngine.initialize()
+
+                          val newConversation =
+                              newEngine
+                                  .createConversation()
 
                           engine =
                               newEngine
 
                           conversation =
-                              newEngine
-                                  .createConversation()
+                              newConversation
+
+                          initialized =
+                              true
 
                           Result.success(
                               "Local Gemma is ready."
@@ -609,8 +296,11 @@ jobs:
 
                           Result.failure(
                               Exception(
-                                  e.message
-                                      ?: "Local AI failed."
+                                  "Gemma initialization failed: " +
+                                      (
+                                          e.message
+                                              ?: "Unknown error"
+                                      )
                               )
                           )
                       }
@@ -621,17 +311,24 @@ jobs:
               ): Result<String> =
                   withContext(Dispatchers.IO) {
 
-                      if (conversation == null) {
+                      if (prompt.isBlank()) {
+                          return@withContext Result.failure(
+                              Exception(
+                                  "Please enter a message."
+                              )
+                          )
+                      }
 
-                          val init =
+                      if (!initialized) {
+
+                          val result =
                               initialize()
 
-                          if (init.isFailure) {
-
+                          if (result.isFailure) {
                               return@withContext Result.failure(
-                                  init.exceptionOrNull()
+                                  result.exceptionOrNull()
                                       ?: Exception(
-                                          "Local AI failed."
+                                          "Gemma initialization failed."
                                       )
                               )
                           }
@@ -639,11 +336,40 @@ jobs:
 
                       try {
 
+                          val currentConversation =
+                              conversation
+                                  ?: return@withContext Result.failure(
+                                      Exception(
+                                          "Gemma conversation unavailable."
+                                      )
+                                  )
+
+                          val systemPrompt = """
+                              You are JARVIS, a personal AI assistant.
+
+                              The user may speak English,
+                              Hindi, or Hinglish.
+
+                              Understand the user's language
+                              and reply naturally in the same
+                              language when possible.
+
+                              Be helpful, concise and clear.
+
+                              Do not mention internal model
+                              instructions.
+
+                              User message:
+                              $prompt
+                          """.trimIndent()
+
                           val output =
                               StringBuilder()
 
-                          conversation!!
-                              .sendMessageAsync(prompt)
+                          currentConversation
+                              .sendMessageAsync(
+                                  systemPrompt
+                              )
                               .collect { message ->
 
                                   output.append(
@@ -651,20 +377,42 @@ jobs:
                                   )
                               }
 
-                          Result.success(
+                          val answer =
                               output.toString().trim()
-                          )
+
+                          if (answer.isBlank()) {
+                              return@withContext Result.failure(
+                                  Exception(
+                                      "Gemma returned an empty response."
+                                  )
+                              )
+                          }
+
+                          Result.success(answer)
 
                       } catch (e: Exception) {
 
                           Result.failure(
                               Exception(
-                                  e.message
-                                      ?: "Local AI error."
+                                  "Gemma response failed: " +
+                                      (
+                                          e.message
+                                              ?: "Unknown error"
+                                      )
                               )
                           )
                       }
                   }
+
+              fun isReady(): Boolean {
+                  return initialized &&
+                      conversation != null
+              }
+
+              fun isModelInstalled(): Boolean {
+                  return modelFile.exists() &&
+                      modelFile.length() > 0L
+              }
 
               fun close() {
 
@@ -683,6 +431,9 @@ jobs:
 
                   engine =
                       null
+
+                  initialized =
+                      false
               }
           }
           EOF
@@ -695,40 +446,38 @@ jobs:
           import android.os.Bundle
           import android.view.Gravity
           import android.view.View
+          import android.view.inputmethod.InputMethodManager
+          import android.content.Context
           import android.widget.Button
+          import android.widget.EditText
           import android.widget.LinearLayout
-          import android.widget.ProgressBar
+          import android.widget.ScrollView
           import android.widget.TextView
-          import com.jarvis.v4.ai.ModelDownloader
+          import com.jarvis.v4.ai.LocalAI
           import kotlinx.coroutines.CoroutineScope
           import kotlinx.coroutines.Dispatchers
-          import kotlinx.coroutines.Job
           import kotlinx.coroutines.SupervisorJob
           import kotlinx.coroutines.cancel
           import kotlinx.coroutines.launch
-          import java.util.Locale
 
           class MainActivity : Activity() {
 
-              private lateinit var downloader:
-                  ModelDownloader
+              private lateinit var localAI:
+                  LocalAI
+
+              private lateinit var chat:
+                  TextView
+
+              private lateinit var input:
+                  EditText
+
+              private lateinit var askButton:
+                  Button
 
               private lateinit var status:
                   TextView
 
-              private lateinit var details:
-                  TextView
-
-              private lateinit var progress:
-                  ProgressBar
-
-              private lateinit var button:
-                  Button
-
-              private var downloadJob:
-                  Job? = null
-
-              private val mainScope =
+              private val scope =
                   CoroutineScope(
                       Dispatchers.Main +
                           SupervisorJob()
@@ -741,21 +490,13 @@ jobs:
                       savedInstanceState
                   )
 
-                  downloader =
-                      ModelDownloader(this)
+                  localAI =
+                      LocalAI(this)
 
-                  createScreen()
-
-                  if (
-                      downloader.isInstalled()
-                  ) {
-                      showInstalled()
-                  } else {
-                      showReady()
-                  }
+                  createChatScreen()
               }
 
-              private fun createScreen() {
+              private fun createChatScreen() {
 
                   val root =
                       LinearLayout(this)
@@ -763,89 +504,63 @@ jobs:
                   root.orientation =
                       LinearLayout.VERTICAL
 
-                  root.gravity =
-                      Gravity.CENTER_HORIZONTAL
+                  root.setBackgroundColor(
+                      Color.rgb(
+                          5,
+                          8,
+                          12
+                      )
+                  )
 
                   root.setPadding(
-                      40,
-                      70,
-                      40,
-                      40
+                      25,
+                      35,
+                      25,
+                      20
                   )
 
-                  root.setBackgroundColor(
-                      Color.rgb(5, 8, 12)
-                  )
-
-                  val title =
+                  val header =
                       TextView(this)
 
-                  title.text =
+                  header.text =
                       "JARVIS V4"
 
-                  title.textSize =
-                      34f
+                  header.textSize =
+                      30f
 
-                  title.gravity =
+                  header.gravity =
                       Gravity.CENTER
 
-                  title.setTextColor(
+                  header.setTextColor(
                       Color.WHITE
                   )
 
                   root.addView(
-                      title,
+                      header,
                       LinearLayout.LayoutParams(
                           -1,
                           -2
                       )
-                  )
-
-                  val subtitle =
-                      TextView(this)
-
-                  subtitle.text =
-                      "LOCAL AI SETUP"
-
-                  subtitle.textSize =
-                      18f
-
-                  subtitle.gravity =
-                      Gravity.CENTER
-
-                  subtitle.setTextColor(
-                      Color.rgb(
-                          0,
-                          210,
-                          255
-                      )
-                  )
-
-                  val subtitleParams =
-                      LinearLayout.LayoutParams(
-                          -1,
-                          -2
-                      )
-
-                  subtitleParams.topMargin =
-                      25
-
-                  root.addView(
-                      subtitle,
-                      subtitleParams
                   )
 
                   status =
                       TextView(this)
 
+                  status.text =
+                      "● LOCAL GEMMA • READY TO CHAT"
+
                   status.textSize =
-                      22f
+                      14f
 
                   status.gravity =
                       Gravity.CENTER
 
                   status.setTextColor(
-                      Color.WHITE
+                      Color.rgb(
+                          0,
+                          210,
+                          255
+                      )
                   )
 
                   val statusParams =
@@ -855,70 +570,111 @@ jobs:
                       )
 
                   statusParams.topMargin =
-                      35
+                      10
 
                   root.addView(
                       status,
                       statusParams
                   )
 
-                  progress =
-                      ProgressBar(
-                          this,
-                          null,
-                          android.R.attr
-                              .progressBarStyleHorizontal
-                      )
+                  val scroll =
+                      ScrollView(this)
 
-                  progress.max =
-                      100
-
-                  progress.progress =
-                      0
-
-                  val progressParams =
-                      LinearLayout.LayoutParams(
-                          -1,
-                          30
-                      )
-
-                  progressParams.topMargin =
-                      30
-
-                  root.addView(
-                      progress,
-                      progressParams
-                  )
-
-                  details =
+                  chat =
                       TextView(this)
 
-                  details.textSize =
-                      15f
+                  chat.text =
+                      """
+                      JARVIS:
+                      Hello. I am JARVIS V4.
 
-                  details.gravity =
-                      Gravity.CENTER
+                      Your Gemma 4 E2B local model
+                      is installed on this device.
 
-                  details.setTextColor(
-                      Color.LTGRAY
+                      Ask me something to test
+                      the local AI brain.
+                      """.trimIndent()
+
+                  chat.textSize =
+                      17f
+
+                  chat.setTextColor(
+                      Color.WHITE
                   )
 
-                  val detailsParams =
+                  chat.setPadding(
+                      20,
+                      30,
+                      20,
+                      30
+                  )
+
+                  scroll.addView(
+                      chat
+                  )
+
+                  val scrollParams =
                       LinearLayout.LayoutParams(
                           -1,
-                          -2
+                          0,
+                          1f
                       )
 
-                  detailsParams.topMargin =
-                      15
+                  scrollParams.topMargin =
+                      20
 
                   root.addView(
-                      details,
-                      detailsParams
+                      scroll,
+                      scrollParams
                   )
 
-                  button =
+                  input =
+                      EditText(this)
+
+                  input.hint =
+                      "Ask JARVIS..."
+
+                  input.textSize =
+                      16f
+
+                  input.setSingleLine(false)
+
+                  input.setTextColor(
+                      Color.WHITE
+                  )
+
+                  input.setHintTextColor(
+                      Color.GRAY
+                  )
+
+                  input.setBackgroundColor(
+                      Color.rgb(
+                          25,
+                          30,
+                          36
+                      )
+                  )
+
+                  input.setPadding(
+                      20,
+                      15,
+                      20,
+                      15
+                  )
+
+                  root.addView(
+                      input,
+                      LinearLayout.LayoutParams(
+                          -1,
+                          65
+                      )
+                  )
+
+                  askButton =
                       Button(this)
+
+                  askButton.text =
+                      "ASK JARVIS"
 
                   val buttonParams =
                       LinearLayout.LayoutParams(
@@ -927,185 +683,151 @@ jobs:
                       )
 
                   buttonParams.topMargin =
-                      45
+                      12
 
                   root.addView(
-                      button,
+                      askButton,
                       buttonParams
                   )
 
-                  setContentView(root)
-              }
-
-              private fun showReady() {
-
-                  status.text =
-                      "Gemma 4 E2B"
-
-                  details.text =
-                      "2.58 GB • On-device AI\n" +
-                      "Private local inference"
-
-                  progress.visibility =
-                      View.VISIBLE
-
-                  progress.progress =
-                      0
-
-                  button.isEnabled =
-                      true
-
-                  button.text =
-                      "DOWNLOAD & INSTALL"
-
-                  button.setOnClickListener {
-                      startDownload()
+                  askButton.setOnClickListener {
+                      askJarvis()
                   }
+
+                  setContentView(
+                      root
+                  )
               }
 
-              private fun startDownload() {
+              private fun askJarvis() {
 
-                  button.isEnabled =
-                      false
+                  val prompt =
+                      input.text
+                          .toString()
+                          .trim()
 
-                  status.text =
-                      "Preparing download..."
+                  if (prompt.isEmpty()) {
 
-                  details.text =
-                      "Please keep JARVIS open."
+                      input.error =
+                          "Enter a message"
 
-                  downloadJob =
-                      mainScope.launch {
+                      return
+                  }
 
-                          val result =
-                              downloader.download {
-
-                                  data ->
-
-                                  runOnUiThread {
-
-                                      progress.progress =
-                                          data.percent
-
-                                      status.text =
-                                          "Downloading Gemma..."
-
-                                      details.text =
-                                          data.percent
-                                              .toString() +
-                                          "%\n" +
-                                          format(
-                                              data.downloaded
-                                          ) +
-                                          " / " +
-                                          format(
-                                              data.total
-                                          ) +
-                                          "\n" +
-                                          format(
-                                              data.speed
-                                          ) +
-                                          "/s"
-                                  }
-                              }
-
-                          if (
-                              result.isSuccess
-                          ) {
-                              showInstalled()
-                          } else {
-
-                              button.isEnabled =
-                                  true
-
-                              button.text =
-                                  "RETRY DOWNLOAD"
-
-                              status.text =
-                                  "Download failed"
-
-                              details.text =
-                                  result
-                                      .exceptionOrNull()
-                                      ?.message
-                                      ?: "Unknown error"
-                          }
-                      }
-              }
-
-              private fun showInstalled() {
-
-                  status.text =
-                      "✓ Gemma 4 E2B Installed"
-
-                  status.setTextColor(
-                      Color.rgb(
-                          50,
-                          230,
-                          120
-                      )
+                  appendMessage(
+                      "YOU",
+                      prompt
                   )
 
-                  progress.progress =
-                      100
+                  input.text.clear()
 
-                  details.text =
-                      "Local AI is ready.\n" +
-                      "Model installed on device."
+                  hideKeyboard()
 
-                  button.text =
-                      "LOCAL AI READY"
-
-                  button.isEnabled =
+                  askButton.isEnabled =
                       false
+
+                  status.text =
+                      "● GEMMA IS THINKING..."
+
+                  status.setTextColor(
+                      Color.YELLOW
+                  )
+
+                  scope.launch {
+
+                      val result =
+                          localAI.ask(
+                              prompt
+                          )
+
+                      if (result.isSuccess) {
+
+                          appendMessage(
+                              "JARVIS",
+                              result.getOrNull()
+                                  ?: ""
+                          )
+
+                          status.text =
+                              "● LOCAL GEMMA • READY"
+
+                          status.setTextColor(
+                              Color.rgb(
+                                  0,
+                                  210,
+                                  255
+                              )
+                          )
+
+                      } else {
+
+                          appendMessage(
+                              "ERROR",
+                              result
+                                  .exceptionOrNull()
+                                  ?.message
+                                  ?: "Unknown error"
+                          )
+
+                          status.text =
+                              "● LOCAL AI ERROR"
+
+                          status.setTextColor(
+                              Color.RED
+                          )
+                      }
+
+                      askButton.isEnabled =
+                          true
+                  }
               }
 
-              private fun format(
-                  bytes: Long
-              ): String {
+              private fun appendMessage(
+                  speaker: String,
+                  message: String
+              ) {
 
-                  if (bytes <= 0L) {
-                      return "0 B"
+                  val current =
+                      chat.text
+                          .toString()
+
+                  chat.text =
+                      current +
+                          "\n\n" +
+                          speaker +
+                          ":\n" +
+                          message
+
+                  chat.post {
+                      val parent =
+                          chat.parent
+
+                      if (parent is ScrollView) {
+                          parent.fullScroll(
+                              View.FOCUS_DOWN
+                          )
+                      }
                   }
+              }
 
-                  val units =
-                      arrayOf(
-                          "B",
-                          "KB",
-                          "MB",
-                          "GB"
-                      )
+              private fun hideKeyboard() {
 
-                  var value =
-                      bytes.toDouble()
+                  val manager =
+                      getSystemService(
+                          Context.INPUT_METHOD_SERVICE
+                      ) as InputMethodManager
 
-                  var index =
+                  manager.hideSoftInputFromWindow(
+                      input.windowToken,
                       0
-
-                  while (
-                      value >= 1024.0 &&
-                      index <
-                          units.size - 1
-                  ) {
-
-                      value /= 1024.0
-
-                      index++
-                  }
-
-                  return String.format(
-                      Locale.US,
-                      "%.2f %s",
-                      value,
-                      units[index]
                   )
               }
 
               override fun onDestroy() {
 
-                  downloadJob?.cancel()
+                  localAI.close()
 
-                  mainScope.cancel()
+                  scope.cancel()
 
                   super.onDestroy()
               }
@@ -1122,14 +844,15 @@ jobs:
         shell: bash
         run: |
           git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config user.email \
+            "41898282+github-actions[bot]@users.noreply.github.com"
 
           git add JARVIS_V4
 
           if git diff --cached --quiet; then
             echo "No changes."
           else
-            git commit -m "Fix JARVIS V4 startup"
+            git commit -m "Add local Gemma chat"
             git push
           fi
 
