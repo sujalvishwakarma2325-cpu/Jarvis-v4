@@ -24,11 +24,36 @@ jobs:
       - name: Install Android SDK
         run: |
           yes | sdkmanager --licenses || true
-          sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0"
+          sdkmanager \
+            "platform-tools" \
+            "platforms;android-35" \
+            "build-tools;35.0.0"
 
-      - name: Create Android project
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+
+      - name: Create JARVIS V4 project
         run: |
+
           mkdir -p JARVIS_V4/app/src/main/java/com/jarvis/v4
+
+          mkdir -p JARVIS_V4/app/src/main/java/com/jarvis/v4/ai
+          mkdir -p JARVIS_V4/app/src/main/java/com/jarvis/v4/voice
+          mkdir -p JARVIS_V4/app/src/main/java/com/jarvis/v4/core
+          mkdir -p JARVIS_V4/app/src/main/java/com/jarvis/v4/actions
+          mkdir -p JARVIS_V4/app/src/main/java/com/jarvis/v4/memory
+          mkdir -p JARVIS_V4/app/src/main/java/com/jarvis/v4/phone
+          mkdir -p JARVIS_V4/app/src/main/java/com/jarvis/v4/calls
+          mkdir -p JARVIS_V4/app/src/main/java/com/jarvis/v4/notifications
+          mkdir -p JARVIS_V4/app/src/main/java/com/jarvis/v4/camera
+          mkdir -p JARVIS_V4/app/src/main/java/com/jarvis/v4/scheduler
+          mkdir -p JARVIS_V4/app/src/main/java/com/jarvis/v4/background
+          mkdir -p JARVIS_V4/app/src/main/java/com/jarvis/v4/developer
+          mkdir -p JARVIS_V4/app/src/main/java/com/jarvis/v4/modes
+          mkdir -p JARVIS_V4/app/src/main/java/com/jarvis/v4/ui
+
           mkdir -p JARVIS_V4/app/src/main/res/values
 
           cat > JARVIS_V4/settings.gradle.kts <<'EOF'
@@ -52,6 +77,7 @@ jobs:
           }
 
           rootProject.name = "JARVIS_V4"
+
           include(":app")
           EOF
 
@@ -76,27 +102,34 @@ jobs:
 
           android {
               namespace = "com.jarvis.v4"
+
               compileSdk = 35
 
               defaultConfig {
                   applicationId = "com.jarvis.v4"
+
                   minSdk = 26
+
                   targetSdk = 35
+
                   versionCode = 1
+
                   versionName = "4.0"
               }
 
               buildTypes {
-                  release {
+
+                  debug {
                       isMinifyEnabled = false
                   }
 
-                  debug {
+                  release {
                       isMinifyEnabled = false
                   }
               }
 
               compileOptions {
+
                   sourceCompatibility =
                       JavaVersion.VERSION_17
 
@@ -114,6 +147,7 @@ jobs:
           }
 
           dependencies {
+
               implementation(
                   "androidx.core:core-ktx:1.16.0"
               )
@@ -144,6 +178,9 @@ jobs:
               <uses-permission
                   android:name="android.permission.RECORD_AUDIO" />
 
+              <uses-permission
+                  android:name="android.permission.CAMERA" />
+
               <application
                   android:allowBackup="true"
                   android:label="JARVIS V4"
@@ -155,11 +192,13 @@ jobs:
                       android:exported="true">
 
                       <intent-filter>
+
                           <action
                               android:name="android.intent.action.MAIN" />
 
                           <category
                               android:name="android.intent.category.LAUNCHER" />
+
                       </intent-filter>
 
                   </activity>
@@ -178,18 +217,30 @@ jobs:
                   name="AppTheme"
                   parent="android:style/Theme.Material.NoActionBar">
 
-                  <item name="android:fontFamily">sans</item>
-                  <item name="android:windowLightStatusBar">false</item>
-                  <item name="android:statusBarColor">#000000</item>
-                  <item name="android:navigationBarColor">#000000</item>
+                  <item name="android:fontFamily">
+                      sans
+                  </item>
+
+                  <item name="android:windowLightStatusBar">
+                      false
+                  </item>
+
+                  <item name="android:statusBarColor">
+                      #000000
+                  </item>
+
+                  <item name="android:navigationBarColor">
+                      #000000
+                  </item>
 
               </style>
 
           </resources>
           EOF
 
-      - name: Create initial JARVIS V4 Activity
+      - name: Create JARVIS V4 module files
         run: |
+
           cat > JARVIS_V4/app/src/main/java/com/jarvis/v4/MainActivity.kt <<'EOF'
           package com.jarvis.v4
 
@@ -204,7 +255,7 @@ jobs:
               ) {
                   super.onCreate(savedInstanceState)
 
-                  val textView =
+                  val screen =
                       TextView(this).apply {
 
                           text = """
@@ -212,16 +263,13 @@ jobs:
 
                               Multi-AI Personal Assistant
 
-                              Local AI
-                              Claude
-                              Gemini
-                              Groq
-                              OpenRouter
-                              GPT
-                              Perplexity
-                              Mistral
+                              Local AI: Gemma
+                              Cloud AI: 10+ Providers
+                              Voice System
+                              Memory System
+                              Android Control
 
-                              System Ready
+                              SYSTEM READY
                           """.trimIndent()
 
                           textSize = 20f
@@ -234,17 +282,279 @@ jobs:
                           )
                       }
 
-                  setContentView(textView)
+                  setContentView(screen)
               }
           }
           EOF
 
-      - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v4
-        with:
-          gradle-version: '8.11.1'
+          cat > JARVIS_V4/app/src/main/java/com/jarvis/v4/ai/AIProvider.kt <<'EOF'
+          package com.jarvis.v4.ai
 
-      - name: Build JARVIS V4
+          enum class AIProvider {
+
+              LOCAL_GEMMA,
+
+              GEMINI,
+
+              CLAUDE,
+
+              GROQ,
+
+              OPENROUTER,
+
+              MISTRAL,
+
+              HUGGING_FACE,
+
+              CLOUDFLARE,
+
+              CEREBRAS,
+
+              TOGETHER,
+
+              DEEPSEEK,
+
+              GPT
+          }
+          EOF
+
+          cat > JARVIS_V4/app/src/main/java/com/jarvis/v4/ai/AIRouter.kt <<'EOF'
+          package com.jarvis.v4.ai
+
+          class AIRouter {
+
+              fun selectProvider(
+                  request: String
+              ): AIProvider {
+
+                  val text =
+                      request.lowercase()
+
+                  return when {
+
+                      text.contains("latest") ||
+                      text.contains("news") ||
+                      text.contains("today") ->
+                          AIProvider.GEMINI
+
+                      text.contains("code") ||
+                      text.contains("program") ->
+                          AIProvider.CLAUDE
+
+                      text.length < 80 ->
+                          AIProvider.LOCAL_GEMMA
+
+                      else ->
+                          AIProvider.GEMINI
+                  }
+              }
+          }
+          EOF
+
+          cat > JARVIS_V4/app/src/main/java/com/jarvis/v4/ai/LocalAI.kt <<'EOF'
+          package com.jarvis.v4.ai
+
+          class LocalAI {
+
+              suspend fun ask(
+                  prompt: String
+              ): Result<String> {
+
+                  return Result.failure(
+                      Exception(
+                          "Local Gemma engine is not installed yet."
+                      )
+                  )
+              }
+          }
+          EOF
+
+          cat > JARVIS_V4/app/src/main/java/com/jarvis/v4/ai/ClaudeAI.kt <<'EOF'
+          package com.jarvis.v4.ai
+
+          class ClaudeAI {
+
+              suspend fun ask(
+                  prompt: String
+              ): Result<String> {
+
+                  return Result.failure(
+                      Exception(
+                          "Claude API is not configured yet."
+                      )
+                  )
+              }
+          }
+          EOF
+
+          cat > JARVIS_V4/app/src/main/java/com/jarvis/v4/ai/GeminiAI.kt <<'EOF'
+          package com.jarvis.v4.ai
+
+          class GeminiAI {
+
+              suspend fun ask(
+                  prompt: String
+              ): Result<String> {
+
+                  return Result.failure(
+                      Exception(
+                          "Gemini API is not configured yet."
+                      )
+                  )
+              }
+          }
+          EOF
+
+          cat > JARVIS_V4/app/src/main/java/com/jarvis/v4/voice/VoiceInput.kt <<'EOF'
+          package com.jarvis.v4.voice
+
+          class VoiceInput
+          EOF
+
+          cat > JARVIS_V4/app/src/main/java/com/jarvis/v4/voice/VoiceOutput.kt <<'EOF'
+          package com.jarvis.v4.voice
+
+          class VoiceOutput
+          EOF
+
+          cat > JARVIS_V4/app/src/main/java/com/jarvis/v4/core/JarvisCore.kt <<'EOF'
+          package com.jarvis.v4.core
+
+          class JarvisCore
+          EOF
+
+          cat > JARVIS_V4/app/src/main/java/com/jarvis/v4/actions/ActionEngine.kt <<'EOF'
+          package com.jarvis.v4.actions
+
+          class ActionEngine
+          EOF
+
+          cat > JARVIS_V4/app/src/main/java/com/jarvis/v4/memory/ConversationMemory.kt <<'EOF'
+          package com.jarvis.v4.memory
+
+          class ConversationMemory
+          EOF
+
+          cat > JARVIS_V4/app/src/main/java/com/jarvis/v4/memory/ContactMemory.kt <<'EOF'
+          package com.jarvis.v4.memory
+
+          class ContactMemory
+          EOF
+
+          cat > JARVIS_V4/app/src/main/java/com/jarvis/v4/memory/PreferenceMemory.kt <<'EOF'
+          package com.jarvis.v4.memory
+
+          class PreferenceMemory
+          EOF
+
+          cat > JARVIS_V4/app/src/main/java/com/jarvis/v4/memory/MemoryStorage.kt <<'EOF'
+          package com.jarvis.v4.memory
+
+          class MemoryStorage
+          EOF
+
+          cat > JARVIS_V4/app/src/main/java/com/jarvis/v4/phone/PhoneControl.kt <<'EOF'
+          package com.jarvis.v4.phone
+
+          class PhoneControl
+          EOF
+
+          cat > JARVIS_V4/app/src/main/java/com/jarvis/v4/phone/AppControl.kt <<'EOF'
+          package com.jarvis.v4.phone
+
+          class AppControl
+          EOF
+
+          cat > JARVIS_V4/app/src/main/java/com/jarvis/v4/calls/CallControl.kt <<'EOF'
+          package com.jarvis.v4.calls
+
+          class CallControl
+          EOF
+
+          cat > JARVIS_V4/app/src/main/java/com/jarvis/v4/notifications/NotificationReader.kt <<'EOF'
+          package com.jarvis.v4.notifications
+
+          class NotificationReader
+          EOF
+
+          cat > JARVIS_V4/app/src/main/java/com/jarvis/v4/camera/CameraControl.kt <<'EOF'
+          package com.jarvis.v4.camera
+
+          class CameraControl
+          EOF
+
+          cat > JARVIS_V4/app/src/main/java/com/jarvis/v4/scheduler/JarvisScheduler.kt <<'EOF'
+          package com.jarvis.v4.scheduler
+
+          class JarvisScheduler
+          EOF
+
+          cat > JARVIS_V4/app/src/main/java/com/jarvis/v4/background/JarvisService.kt <<'EOF'
+          package com.jarvis.v4.background
+
+          class JarvisService
+          EOF
+
+          cat > JARVIS_V4/app/src/main/java/com/jarvis/v4/developer/CodeAnalyzer.kt <<'EOF'
+          package com.jarvis.v4.developer
+
+          class CodeAnalyzer
+          EOF
+
+          cat > JARVIS_V4/app/src/main/java/com/jarvis/v4/developer/ChangePlanner.kt <<'EOF'
+          package com.jarvis.v4.developer
+
+          class ChangePlanner
+          EOF
+
+          cat > JARVIS_V4/app/src/main/java/com/jarvis/v4/developer/CodeGenerator.kt <<'EOF'
+          package com.jarvis.v4.developer
+
+          class CodeGenerator
+          EOF
+
+          cat > JARVIS_V4/app/src/main/java/com/jarvis/v4/developer/BuildManager.kt <<'EOF'
+          package com.jarvis.v4.developer
+
+          class BuildManager
+          EOF
+
+          cat > JARVIS_V4/app/src/main/java/com/jarvis/v4/developer/ApprovalManager.kt <<'EOF'
+          package com.jarvis.v4.developer
+
+          class ApprovalManager
+          EOF
+
+          cat > JARVIS_V4/app/src/main/java/com/jarvis/v4/modes/ModeManager.kt <<'EOF'
+          package com.jarvis.v4.modes
+
+          class ModeManager
+          EOF
+
+          cat > JARVIS_V4/app/src/main/java/com/jarvis/v4/ui/JarvisUI.kt <<'EOF'
+          package com.jarvis.v4.ui
+
+          class JarvisUI
+          EOF
+
+          cat > JARVIS_V4/app/src/main/java/com/jarvis/v4/ui/JarvisOrbView.kt <<'EOF'
+          package com.jarvis.v4.ui
+
+          class JarvisOrbView
+          EOF
+
+          cat > JARVIS_V4/app/src/main/java/com/jarvis/v4/ui/JarvisTheme.kt <<'EOF'
+          package com.jarvis.v4.ui
+
+          class JarvisTheme
+          EOF
+
+      - name: Verify JARVIS V4
+        run: |
+          echo "===== JARVIS V4 STRUCTURE ====="
+          find JARVIS_V4 -type f | sort
+
+      - name: Build JARVIS V4 APK
         working-directory: JARVIS_V4
         run: |
           gradle assembleDebug --no-daemon
