@@ -14,6 +14,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+
       - name: Checkout repository
         uses: actions/checkout@v4
 
@@ -44,7 +45,20 @@ jobs:
 
           rm -rf JARVIS_V4
 
-          mkdir -p JARVIS_V4/app/src/main/java/com/jarvis/v4/{ai,voice,core,actions,memory,phone,calls,notifications,camera,scheduler,background,developer,modes,ui}
+          mkdir -p JARVIS_V4/app/src/main/java/com/jarvis/v4/ai
+          mkdir -p JARVIS_V4/app/src/main/java/com/jarvis/v4/voice
+          mkdir -p JARVIS_V4/app/src/main/java/com/jarvis/v4/core
+          mkdir -p JARVIS_V4/app/src/main/java/com/jarvis/v4/actions
+          mkdir -p JARVIS_V4/app/src/main/java/com/jarvis/v4/memory
+          mkdir -p JARVIS_V4/app/src/main/java/com/jarvis/v4/phone
+          mkdir -p JARVIS_V4/app/src/main/java/com/jarvis/v4/calls
+          mkdir -p JARVIS_V4/app/src/main/java/com/jarvis/v4/notifications
+          mkdir -p JARVIS_V4/app/src/main/java/com/jarvis/v4/camera
+          mkdir -p JARVIS_V4/app/src/main/java/com/jarvis/v4/scheduler
+          mkdir -p JARVIS_V4/app/src/main/java/com/jarvis/v4/background
+          mkdir -p JARVIS_V4/app/src/main/java/com/jarvis/v4/developer
+          mkdir -p JARVIS_V4/app/src/main/java/com/jarvis/v4/modes
+          mkdir -p JARVIS_V4/app/src/main/java/com/jarvis/v4/ui
           mkdir -p JARVIS_V4/app/src/main/res/values
 
           cat > JARVIS_V4/settings.gradle.kts <<'EOF'
@@ -65,6 +79,7 @@ jobs:
           }
 
           rootProject.name = "JARVIS_V4"
+
           include(":app")
           EOF
 
@@ -103,6 +118,7 @@ jobs:
                   debug {
                       isMinifyEnabled = false
                   }
+
                   release {
                       isMinifyEnabled = false
                   }
@@ -113,12 +129,16 @@ jobs:
                   targetCompatibility = JavaVersion.VERSION_17
               }
 
-              kotlinOptions {
-                  jvmTarget = "17"
-              }
-
               buildFeatures {
                   buildConfig = true
+              }
+          }
+
+          kotlin {
+              compilerOptions {
+                  jvmTarget.set(
+                      org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17
+                  )
               }
           }
 
@@ -127,24 +147,38 @@ jobs:
               implementation("androidx.appcompat:appcompat:1.7.0")
               implementation("com.google.android.material:material:1.12.0")
               implementation("androidx.activity:activity-ktx:1.10.1")
-              implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")
-              implementation("com.google.ai.edge.litertlm:litertlm-android:0.16.1")
+
+              implementation(
+                  "org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2"
+              )
+
+              implementation(
+                  "com.google.ai.edge.litertlm:litertlm-android:0.16.1"
+              )
           }
           EOF
 
           cat > JARVIS_V4/app/src/main/res/values/styles.xml <<'EOF'
           <resources>
-              <style name="Theme.JarvisV4" parent="android:style/Theme.Material.Light.NoActionBar">
+
+              <style
+                  name="Theme.JarvisV4"
+                  parent="android:style/Theme.Material.Light.NoActionBar">
+
                   <item name="android:fontFamily">sans</item>
                   <item name="android:statusBarColor">#000000</item>
                   <item name="android:navigationBarColor">#000000</item>
+
               </style>
+
           </resources>
           EOF
 
           cat > JARVIS_V4/app/src/main/AndroidManifest.xml <<'EOF'
           <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-              <uses-permission android:name="android.permission.INTERNET" />
+
+              <uses-permission
+                  android:name="android.permission.INTERNET" />
 
               <application
                   android:allowBackup="true"
@@ -155,12 +189,21 @@ jobs:
                   <activity
                       android:name=".MainActivity"
                       android:exported="true">
+
                       <intent-filter>
-                          <action android:name="android.intent.action.MAIN" />
-                          <category android:name="android.intent.category.LAUNCHER" />
+
+                          <action
+                              android:name="android.intent.action.MAIN" />
+
+                          <category
+                              android:name="android.intent.category.LAUNCHER" />
+
                       </intent-filter>
+
                   </activity>
+
               </application>
+
           </manifest>
           EOF
 
@@ -172,10 +215,12 @@ jobs:
           import androidx.appcompat.app.AppCompatActivity
 
           class MainActivity : AppCompatActivity() {
+
               override fun onCreate(savedInstanceState: Bundle?) {
                   super.onCreate(savedInstanceState)
 
                   val textView = TextView(this)
+
                   textView.text = """
                       JARVIS V4
 
@@ -189,7 +234,14 @@ jobs:
                   """.trimIndent()
 
                   textView.textSize = 20f
-                  textView.setPadding(40, 80, 40, 40)
+
+                  textView.setPadding(
+                      40,
+                      80,
+                      40,
+                      40
+                  )
+
                   setContentView(textView)
               }
           }
@@ -208,25 +260,40 @@ jobs:
           import kotlinx.coroutines.withContext
           import java.io.File
 
-          class LocalAI(private val context: Context) {
+          class LocalAI(
+              private val context: Context
+          ) {
 
               companion object {
-                  private const val MODEL_NAME = "gemma-4-E2B-it.litertlm"
-                  private const val MODEL_DIRECTORY = "litert_models"
+                  private const val MODEL_NAME =
+                      "gemma-4-E2B-it.litertlm"
+
+                  private const val MODEL_DIRECTORY =
+                      "litert_models"
               }
 
               private var engine: Engine? = null
+
               private var conversation: Conversation? = null
+
               private var initialized = false
 
               private val modelFile: File
-                  get() = File(
-                      File(context.filesDir, MODEL_DIRECTORY),
-                      MODEL_NAME
-                  )
+                  get() {
+                      val directory = File(
+                          context.filesDir,
+                          MODEL_DIRECTORY
+                      )
+
+                      return File(
+                          directory,
+                          MODEL_NAME
+                      )
+                  }
 
               suspend fun initialize(): Result<String> =
                   withContext(Dispatchers.IO) {
+
                       if (initialized) {
                           return@withContext Result.success(
                               "Local Gemma is already ready."
@@ -236,47 +303,68 @@ jobs:
                       if (!modelFile.exists()) {
                           return@withContext Result.failure(
                               Exception(
-                                  "Gemma model is not installed: ${modelFile.absolutePath}"
+                                  """
+                                  Gemma model is not installed.
+
+                                  Required file:
+                                  $MODEL_NAME
+
+                                  Expected location:
+                                  ${modelFile.absolutePath}
+                                  """.trimIndent()
                               )
                           )
                       }
 
                       try {
+
                           val config = EngineConfig(
                               modelPath = modelFile.absolutePath,
                               backend = Backend.CPU()
                           )
 
                           val newEngine = Engine(config)
+
                           newEngine.initialize()
 
                           engine = newEngine
-                          conversation = newEngine.createConversation()
+
+                          conversation =
+                              newEngine.createConversation()
+
                           initialized = true
 
-                          Result.success("Local Gemma is ready.")
+                          Result.success(
+                              "Local Gemma is ready."
+                          )
+
                       } catch (e: Exception) {
+
                           try {
                               engine?.close()
                           } catch (_: Exception) {
                           }
 
                           engine = null
+
                           conversation = null
+
                           initialized = false
 
                           Result.failure(
                               Exception(
-                                  "Local AI initialization failed: ${
-                                      e.message ?: "Unknown error"
-                                  }"
+                                  "Local AI initialization failed: " +
+                                      (e.message ?: "Unknown error")
                               )
                           )
                       }
                   }
 
-              suspend fun ask(prompt: String): Result<String> =
+              suspend fun ask(
+                  prompt: String
+              ): Result<String> =
                   withContext(Dispatchers.IO) {
+
                       if (prompt.isBlank()) {
                           return@withContext Result.failure(
                               Exception("Prompt is empty.")
@@ -284,68 +372,99 @@ jobs:
                       }
 
                       if (!initialized) {
+
                           val result = initialize()
+
                           if (result.isFailure) {
                               return@withContext Result.failure(
                                   result.exceptionOrNull()
-                                      ?: Exception("Local AI initialization failed.")
+                                      ?: Exception(
+                                          "Local AI initialization failed."
+                                      )
                               )
                           }
                       }
 
                       try {
-                          val currentConversation = conversation
-                              ?: return@withContext Result.failure(
-                                  Exception("Conversation is unavailable.")
-                              )
+
+                          val currentConversation =
+                              conversation
+                                  ?: return@withContext Result.failure(
+                                      Exception(
+                                          "Conversation is unavailable."
+                                      )
+                                  )
 
                           val fullPrompt = """
                               You are JARVIS, a personal AI assistant.
 
                               Answer naturally and concisely.
-                              The user may speak English, Hindi, or Hinglish.
-                              Keep answers suitable for a voice assistant.
+
+                              The user may speak English,
+                              Hindi, or Hinglish.
+
+                              Keep answers suitable
+                              for a voice assistant.
 
                               User:
                               $prompt
                           """.trimIndent()
 
-                          val response = StringBuilder()
+                          val response =
+                              StringBuilder()
 
                           currentConversation
                               .sendMessageAsync(fullPrompt)
                               .collect { message ->
-                                  response.append(message.toString())
+
+                                  response.append(
+                                      message.toString()
+                                  )
                               }
 
-                          val answer = response.toString().trim()
+                          val answer =
+                              response.toString().trim()
 
                           if (answer.isBlank()) {
                               return@withContext Result.failure(
-                                  Exception("Local Gemma returned an empty response.")
+                                  Exception(
+                                      "Local Gemma returned an empty response."
+                                  )
                               )
                           }
 
                           Result.success(answer)
+
                       } catch (e: Exception) {
+
                           Result.failure(
                               Exception(
-                                  "Local AI error: ${
-                                      e.message ?: "Unknown error"
-                                  }"
+                                  "Local AI error: " +
+                                      (e.message ?: "Unknown error")
                               )
                           )
                       }
                   }
 
-              fun isModelInstalled(): Boolean = modelFile.exists()
+              fun isModelInstalled(): Boolean {
+                  return modelFile.exists()
+              }
 
-              fun getModelPath(): String = modelFile.absolutePath
+              fun getModelPath(): String {
+                  return modelFile.absolutePath
+              }
 
-              fun getModelSizeBytes(): Long =
-                  if (modelFile.exists()) modelFile.length() else 0L
+              fun getModelSizeBytes(): Long {
+
+                  return if (modelFile.exists()) {
+                      modelFile.length()
+                  } else {
+                      0L
+                  }
+              }
 
               fun close() {
+
                   try {
                       conversation?.close()
                   } catch (_: Exception) {
@@ -357,7 +476,9 @@ jobs:
                   }
 
                   conversation = null
+
                   engine = null
+
                   initialized = false
               }
           }
@@ -367,16 +488,26 @@ jobs:
           package com.jarvis.v4.ai
 
           interface AIProvider {
-              suspend fun ask(prompt: String): Result<String>
+
+              suspend fun ask(
+                  prompt: String
+              ): Result<String>
           }
           EOF
 
           cat > JARVIS_V4/app/src/main/java/com/jarvis/v4/ai/AIRouter.kt <<'EOF'
           package com.jarvis.v4.ai
 
-          class AIRouter(private val localAI: LocalAI) {
-              suspend fun ask(prompt: String): Result<String> =
-                  localAI.ask(prompt)
+          class AIRouter(
+              private val localAI: LocalAI
+          ) {
+
+              suspend fun ask(
+                  prompt: String
+              ): Result<String> {
+
+                  return localAI.ask(prompt)
+              }
           }
           EOF
 
@@ -384,8 +515,17 @@ jobs:
           package com.jarvis.v4.ai
 
           class ClaudeAI : AIProvider {
-              override suspend fun ask(prompt: String): Result<String> =
-                  Result.failure(Exception("Claude provider not configured yet."))
+
+              override suspend fun ask(
+                  prompt: String
+              ): Result<String> {
+
+                  return Result.failure(
+                      Exception(
+                          "Claude provider not configured yet."
+                      )
+                  )
+              }
           }
           EOF
 
@@ -393,128 +533,161 @@ jobs:
           package com.jarvis.v4.ai
 
           class GeminiAI : AIProvider {
-              override suspend fun ask(prompt: String): Result<String> =
-                  Result.failure(Exception("Gemini provider not configured yet."))
+
+              override suspend fun ask(
+                  prompt: String
+              ): Result<String> {
+
+                  return Result.failure(
+                      Exception(
+                          "Gemini provider not configured yet."
+                      )
+                  )
+              }
           }
           EOF
 
           cat > JARVIS_V4/app/src/main/java/com/jarvis/v4/voice/VoiceInput.kt <<'EOF'
           package com.jarvis.v4.voice
+
           class VoiceInput
           EOF
 
           cat > JARVIS_V4/app/src/main/java/com/jarvis/v4/voice/VoiceOutput.kt <<'EOF'
           package com.jarvis.v4.voice
+
           class VoiceOutput
           EOF
 
           cat > JARVIS_V4/app/src/main/java/com/jarvis/v4/core/JarvisCore.kt <<'EOF'
           package com.jarvis.v4.core
+
           class JarvisCore
           EOF
 
           cat > JARVIS_V4/app/src/main/java/com/jarvis/v4/actions/ActionEngine.kt <<'EOF'
           package com.jarvis.v4.actions
+
           class ActionEngine
           EOF
 
           cat > JARVIS_V4/app/src/main/java/com/jarvis/v4/memory/ConversationMemory.kt <<'EOF'
           package com.jarvis.v4.memory
+
           class ConversationMemory
           EOF
 
           cat > JARVIS_V4/app/src/main/java/com/jarvis/v4/memory/ContactMemory.kt <<'EOF'
           package com.jarvis.v4.memory
+
           class ContactMemory
           EOF
 
           cat > JARVIS_V4/app/src/main/java/com/jarvis/v4/memory/PreferenceMemory.kt <<'EOF'
           package com.jarvis.v4.memory
+
           class PreferenceMemory
           EOF
 
           cat > JARVIS_V4/app/src/main/java/com/jarvis/v4/memory/MemoryStorage.kt <<'EOF'
           package com.jarvis.v4.memory
+
           class MemoryStorage
           EOF
 
           cat > JARVIS_V4/app/src/main/java/com/jarvis/v4/phone/PhoneControl.kt <<'EOF'
           package com.jarvis.v4.phone
+
           class PhoneControl
           EOF
 
           cat > JARVIS_V4/app/src/main/java/com/jarvis/v4/phone/AppControl.kt <<'EOF'
           package com.jarvis.v4.phone
+
           class AppControl
           EOF
 
           cat > JARVIS_V4/app/src/main/java/com/jarvis/v4/calls/CallControl.kt <<'EOF'
           package com.jarvis.v4.calls
+
           class CallControl
           EOF
 
           cat > JARVIS_V4/app/src/main/java/com/jarvis/v4/notifications/NotificationReader.kt <<'EOF'
           package com.jarvis.v4.notifications
+
           class NotificationReader
           EOF
 
           cat > JARVIS_V4/app/src/main/java/com/jarvis/v4/camera/CameraControl.kt <<'EOF'
           package com.jarvis.v4.camera
+
           class CameraControl
           EOF
 
           cat > JARVIS_V4/app/src/main/java/com/jarvis/v4/scheduler/JarvisScheduler.kt <<'EOF'
           package com.jarvis.v4.scheduler
+
           class JarvisScheduler
           EOF
 
           cat > JARVIS_V4/app/src/main/java/com/jarvis/v4/background/JarvisService.kt <<'EOF'
           package com.jarvis.v4.background
+
           class JarvisService
           EOF
 
           cat > JARVIS_V4/app/src/main/java/com/jarvis/v4/developer/CodeAnalyzer.kt <<'EOF'
           package com.jarvis.v4.developer
+
           class CodeAnalyzer
           EOF
 
           cat > JARVIS_V4/app/src/main/java/com/jarvis/v4/developer/ChangePlanner.kt <<'EOF'
           package com.jarvis.v4.developer
+
           class ChangePlanner
           EOF
 
           cat > JARVIS_V4/app/src/main/java/com/jarvis/v4/developer/CodeGenerator.kt <<'EOF'
           package com.jarvis.v4.developer
+
           class CodeGenerator
           EOF
 
           cat > JARVIS_V4/app/src/main/java/com/jarvis/v4/developer/BuildManager.kt <<'EOF'
           package com.jarvis.v4.developer
+
           class BuildManager
           EOF
 
           cat > JARVIS_V4/app/src/main/java/com/jarvis/v4/developer/ApprovalManager.kt <<'EOF'
           package com.jarvis.v4.developer
+
           class ApprovalManager
           EOF
 
           cat > JARVIS_V4/app/src/main/java/com/jarvis/v4/modes/ModeManager.kt <<'EOF'
           package com.jarvis.v4.modes
+
           class ModeManager
           EOF
 
           cat > JARVIS_V4/app/src/main/java/com/jarvis/v4/ui/JarvisUI.kt <<'EOF'
           package com.jarvis.v4.ui
+
           class JarvisUI
           EOF
 
           cat > JARVIS_V4/app/src/main/java/com/jarvis/v4/ui/JarvisOrbView.kt <<'EOF'
           package com.jarvis.v4.ui
+
           class JarvisOrbView
           EOF
 
           cat > JARVIS_V4/app/src/main/java/com/jarvis/v4/ui/JarvisTheme.kt <<'EOF'
           package com.jarvis.v4.ui
+
           class JarvisTheme
           EOF
 
@@ -534,8 +707,10 @@ jobs:
         shell: bash
         run: |
           set -e
+
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
           git add JARVIS_V4
 
           if git diff --cached --quiet; then
