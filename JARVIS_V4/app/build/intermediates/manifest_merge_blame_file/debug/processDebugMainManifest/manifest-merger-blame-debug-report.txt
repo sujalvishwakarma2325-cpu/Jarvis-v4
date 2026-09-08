@@ -1,44 +1,44 @@
 1<?xml version="1.0" encoding="utf-8"?>
 2<manifest xmlns:android="http://schemas.android.com/apk/res/android"
 3    package="com.jarvis.v4"
-4    android:versionCode="1"
-5    android:versionName="4.0" >
+4    android:versionCode="2"
+5    android:versionName="4.1" >
 6
 7    <uses-sdk
 8        android:minSdkVersion="26"
 9        android:targetSdkVersion="35" />
 10
 11    <uses-permission android:name="android.permission.INTERNET" />
-11-->/home/runner/work/Jarvis-v4/Jarvis-v4/JARVIS_V4/app/src/main/AndroidManifest.xml:3:5-4:54
-11-->/home/runner/work/Jarvis-v4/Jarvis-v4/JARVIS_V4/app/src/main/AndroidManifest.xml:4:9-51
+11-->/home/runner/work/Jarvis-v4/Jarvis-v4/JARVIS_V4/app/src/main/AndroidManifest.xml:4:5-5:54
+11-->/home/runner/work/Jarvis-v4/Jarvis-v4/JARVIS_V4/app/src/main/AndroidManifest.xml:5:9-51
 12
 13    <application
-13-->/home/runner/work/Jarvis-v4/Jarvis-v4/JARVIS_V4/app/src/main/AndroidManifest.xml:6:5-28:19
+13-->/home/runner/work/Jarvis-v4/Jarvis-v4/JARVIS_V4/app/src/main/AndroidManifest.xml:7:5-29:19
 14        android:allowBackup="true"
-14-->/home/runner/work/Jarvis-v4/Jarvis-v4/JARVIS_V4/app/src/main/AndroidManifest.xml:7:9-35
+14-->/home/runner/work/Jarvis-v4/Jarvis-v4/JARVIS_V4/app/src/main/AndroidManifest.xml:8:9-35
 15        android:debuggable="true"
 16        android:extractNativeLibs="false"
 17        android:label="JARVIS V4"
-17-->/home/runner/work/Jarvis-v4/Jarvis-v4/JARVIS_V4/app/src/main/AndroidManifest.xml:8:9-34
+17-->/home/runner/work/Jarvis-v4/Jarvis-v4/JARVIS_V4/app/src/main/AndroidManifest.xml:9:9-34
 18        android:supportsRtl="true"
-18-->/home/runner/work/Jarvis-v4/Jarvis-v4/JARVIS_V4/app/src/main/AndroidManifest.xml:9:9-35
+18-->/home/runner/work/Jarvis-v4/Jarvis-v4/JARVIS_V4/app/src/main/AndroidManifest.xml:10:9-35
 19        android:theme="@style/Theme.JarvisV4" >
-19-->/home/runner/work/Jarvis-v4/Jarvis-v4/JARVIS_V4/app/src/main/AndroidManifest.xml:10:9-46
+19-->/home/runner/work/Jarvis-v4/Jarvis-v4/JARVIS_V4/app/src/main/AndroidManifest.xml:11:9-46
 20        <activity
-20-->/home/runner/work/Jarvis-v4/Jarvis-v4/JARVIS_V4/app/src/main/AndroidManifest.xml:12:9-26:20
+20-->/home/runner/work/Jarvis-v4/Jarvis-v4/JARVIS_V4/app/src/main/AndroidManifest.xml:13:9-27:20
 21            android:name="com.jarvis.v4.MainActivity"
-21-->/home/runner/work/Jarvis-v4/Jarvis-v4/JARVIS_V4/app/src/main/AndroidManifest.xml:13:13-41
+21-->/home/runner/work/Jarvis-v4/Jarvis-v4/JARVIS_V4/app/src/main/AndroidManifest.xml:14:13-41
 22            android:exported="true" >
-22-->/home/runner/work/Jarvis-v4/Jarvis-v4/JARVIS_V4/app/src/main/AndroidManifest.xml:14:13-36
+22-->/home/runner/work/Jarvis-v4/Jarvis-v4/JARVIS_V4/app/src/main/AndroidManifest.xml:15:13-36
 23            <intent-filter>
-23-->/home/runner/work/Jarvis-v4/Jarvis-v4/JARVIS_V4/app/src/main/AndroidManifest.xml:16:13-24:29
+23-->/home/runner/work/Jarvis-v4/Jarvis-v4/JARVIS_V4/app/src/main/AndroidManifest.xml:17:13-25:29
 24                <action android:name="android.intent.action.MAIN" />
-24-->/home/runner/work/Jarvis-v4/Jarvis-v4/JARVIS_V4/app/src/main/AndroidManifest.xml:18:17-19:65
-24-->/home/runner/work/Jarvis-v4/Jarvis-v4/JARVIS_V4/app/src/main/AndroidManifest.xml:19:21-62
+24-->/home/runner/work/Jarvis-v4/Jarvis-v4/JARVIS_V4/app/src/main/AndroidManifest.xml:19:17-20:65
+24-->/home/runner/work/Jarvis-v4/Jarvis-v4/JARVIS_V4/app/src/main/AndroidManifest.xml:20:21-62
 25
 26                <category android:name="android.intent.category.LAUNCHER" />
-26-->/home/runner/work/Jarvis-v4/Jarvis-v4/JARVIS_V4/app/src/main/AndroidManifest.xml:21:17-22:71
-26-->/home/runner/work/Jarvis-v4/Jarvis-v4/JARVIS_V4/app/src/main/AndroidManifest.xml:22:21-68
+26-->/home/runner/work/Jarvis-v4/Jarvis-v4/JARVIS_V4/app/src/main/AndroidManifest.xml:22:17-23:71
+26-->/home/runner/work/Jarvis-v4/Jarvis-v4/JARVIS_V4/app/src/main/AndroidManifest.xml:23:21-68
 27            </intent-filter>
 28        </activity>
 29    </application>

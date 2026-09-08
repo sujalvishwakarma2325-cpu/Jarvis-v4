@@ -5,40 +5,38 @@ import android.graphics.Color
 import android.os.Bundle
 import android.view.Gravity
 import android.view.View
+import android.view.inputmethod.InputMethodManager
+import android.content.Context
 import android.widget.Button
+import android.widget.EditText
 import android.widget.LinearLayout
-import android.widget.ProgressBar
+import android.widget.ScrollView
 import android.widget.TextView
-import com.jarvis.v4.ai.ModelDownloader
+import com.jarvis.v4.ai.LocalAI
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
-import java.util.Locale
 
 class MainActivity : Activity() {
 
-    private lateinit var downloader:
-        ModelDownloader
+    private lateinit var localAI:
+        LocalAI
+
+    private lateinit var chat:
+        TextView
+
+    private lateinit var input:
+        EditText
+
+    private lateinit var askButton:
+        Button
 
     private lateinit var status:
         TextView
 
-    private lateinit var details:
-        TextView
-
-    private lateinit var progress:
-        ProgressBar
-
-    private lateinit var button:
-        Button
-
-    private var downloadJob:
-        Job? = null
-
-    private val mainScope =
+    private val scope =
         CoroutineScope(
             Dispatchers.Main +
                 SupervisorJob()
@@ -51,21 +49,13 @@ class MainActivity : Activity() {
             savedInstanceState
         )
 
-        downloader =
-            ModelDownloader(this)
+        localAI =
+            LocalAI(this)
 
-        createScreen()
-
-        if (
-            downloader.isInstalled()
-        ) {
-            showInstalled()
-        } else {
-            showReady()
-        }
+        createChatScreen()
     }
 
-    private fun createScreen() {
+    private fun createChatScreen() {
 
         val root =
             LinearLayout(this)
@@ -73,89 +63,63 @@ class MainActivity : Activity() {
         root.orientation =
             LinearLayout.VERTICAL
 
-        root.gravity =
-            Gravity.CENTER_HORIZONTAL
+        root.setBackgroundColor(
+            Color.rgb(
+                5,
+                8,
+                12
+            )
+        )
 
         root.setPadding(
-            40,
-            70,
-            40,
-            40
+            25,
+            35,
+            25,
+            20
         )
 
-        root.setBackgroundColor(
-            Color.rgb(5, 8, 12)
-        )
-
-        val title =
+        val header =
             TextView(this)
 
-        title.text =
+        header.text =
             "JARVIS V4"
 
-        title.textSize =
-            34f
+        header.textSize =
+            30f
 
-        title.gravity =
+        header.gravity =
             Gravity.CENTER
 
-        title.setTextColor(
+        header.setTextColor(
             Color.WHITE
         )
 
         root.addView(
-            title,
+            header,
             LinearLayout.LayoutParams(
                 -1,
                 -2
             )
-        )
-
-        val subtitle =
-            TextView(this)
-
-        subtitle.text =
-            "LOCAL AI SETUP"
-
-        subtitle.textSize =
-            18f
-
-        subtitle.gravity =
-            Gravity.CENTER
-
-        subtitle.setTextColor(
-            Color.rgb(
-                0,
-                210,
-                255
-            )
-        )
-
-        val subtitleParams =
-            LinearLayout.LayoutParams(
-                -1,
-                -2
-            )
-
-        subtitleParams.topMargin =
-            25
-
-        root.addView(
-            subtitle,
-            subtitleParams
         )
 
         status =
             TextView(this)
 
+        status.text =
+            "● LOCAL GEMMA • READY TO CHAT"
+
         status.textSize =
-            22f
+            14f
 
         status.gravity =
             Gravity.CENTER
 
         status.setTextColor(
-            Color.WHITE
+            Color.rgb(
+                0,
+                210,
+                255
+            )
         )
 
         val statusParams =
@@ -165,70 +129,111 @@ class MainActivity : Activity() {
             )
 
         statusParams.topMargin =
-            35
+            10
 
         root.addView(
             status,
             statusParams
         )
 
-        progress =
-            ProgressBar(
-                this,
-                null,
-                android.R.attr
-                    .progressBarStyleHorizontal
-            )
+        val scroll =
+            ScrollView(this)
 
-        progress.max =
-            100
-
-        progress.progress =
-            0
-
-        val progressParams =
-            LinearLayout.LayoutParams(
-                -1,
-                30
-            )
-
-        progressParams.topMargin =
-            30
-
-        root.addView(
-            progress,
-            progressParams
-        )
-
-        details =
+        chat =
             TextView(this)
 
-        details.textSize =
-            15f
+        chat.text =
+            """
+            JARVIS:
+            Hello. I am JARVIS V4.
 
-        details.gravity =
-            Gravity.CENTER
+            Your Gemma 4 E2B local model
+            is installed on this device.
 
-        details.setTextColor(
-            Color.LTGRAY
+            Ask me something to test
+            the local AI brain.
+            """.trimIndent()
+
+        chat.textSize =
+            17f
+
+        chat.setTextColor(
+            Color.WHITE
         )
 
-        val detailsParams =
+        chat.setPadding(
+            20,
+            30,
+            20,
+            30
+        )
+
+        scroll.addView(
+            chat
+        )
+
+        val scrollParams =
             LinearLayout.LayoutParams(
                 -1,
-                -2
+                0,
+                1f
             )
 
-        detailsParams.topMargin =
-            15
+        scrollParams.topMargin =
+            20
 
         root.addView(
-            details,
-            detailsParams
+            scroll,
+            scrollParams
         )
 
-        button =
+        input =
+            EditText(this)
+
+        input.hint =
+            "Ask JARVIS..."
+
+        input.textSize =
+            16f
+
+        input.setSingleLine(false)
+
+        input.setTextColor(
+            Color.WHITE
+        )
+
+        input.setHintTextColor(
+            Color.GRAY
+        )
+
+        input.setBackgroundColor(
+            Color.rgb(
+                25,
+                30,
+                36
+            )
+        )
+
+        input.setPadding(
+            20,
+            15,
+            20,
+            15
+        )
+
+        root.addView(
+            input,
+            LinearLayout.LayoutParams(
+                -1,
+                65
+            )
+        )
+
+        askButton =
             Button(this)
+
+        askButton.text =
+            "ASK JARVIS"
 
         val buttonParams =
             LinearLayout.LayoutParams(
@@ -237,185 +242,151 @@ class MainActivity : Activity() {
             )
 
         buttonParams.topMargin =
-            45
+            12
 
         root.addView(
-            button,
+            askButton,
             buttonParams
         )
 
-        setContentView(root)
-    }
-
-    private fun showReady() {
-
-        status.text =
-            "Gemma 4 E2B"
-
-        details.text =
-            "2.58 GB • On-device AI\n" +
-            "Private local inference"
-
-        progress.visibility =
-            View.VISIBLE
-
-        progress.progress =
-            0
-
-        button.isEnabled =
-            true
-
-        button.text =
-            "DOWNLOAD & INSTALL"
-
-        button.setOnClickListener {
-            startDownload()
+        askButton.setOnClickListener {
+            askJarvis()
         }
+
+        setContentView(
+            root
+        )
     }
 
-    private fun startDownload() {
+    private fun askJarvis() {
 
-        button.isEnabled =
-            false
+        val prompt =
+            input.text
+                .toString()
+                .trim()
 
-        status.text =
-            "Preparing download..."
+        if (prompt.isEmpty()) {
 
-        details.text =
-            "Please keep JARVIS open."
+            input.error =
+                "Enter a message"
 
-        downloadJob =
-            mainScope.launch {
+            return
+        }
 
-                val result =
-                    downloader.download {
-
-                        data ->
-
-                        runOnUiThread {
-
-                            progress.progress =
-                                data.percent
-
-                            status.text =
-                                "Downloading Gemma..."
-
-                            details.text =
-                                data.percent
-                                    .toString() +
-                                "%\n" +
-                                format(
-                                    data.downloaded
-                                ) +
-                                " / " +
-                                format(
-                                    data.total
-                                ) +
-                                "\n" +
-                                format(
-                                    data.speed
-                                ) +
-                                "/s"
-                        }
-                    }
-
-                if (
-                    result.isSuccess
-                ) {
-                    showInstalled()
-                } else {
-
-                    button.isEnabled =
-                        true
-
-                    button.text =
-                        "RETRY DOWNLOAD"
-
-                    status.text =
-                        "Download failed"
-
-                    details.text =
-                        result
-                            .exceptionOrNull()
-                            ?.message
-                            ?: "Unknown error"
-                }
-            }
-    }
-
-    private fun showInstalled() {
-
-        status.text =
-            "✓ Gemma 4 E2B Installed"
-
-        status.setTextColor(
-            Color.rgb(
-                50,
-                230,
-                120
-            )
+        appendMessage(
+            "YOU",
+            prompt
         )
 
-        progress.progress =
-            100
+        input.text.clear()
 
-        details.text =
-            "Local AI is ready.\n" +
-            "Model installed on device."
+        hideKeyboard()
 
-        button.text =
-            "LOCAL AI READY"
-
-        button.isEnabled =
+        askButton.isEnabled =
             false
+
+        status.text =
+            "● GEMMA IS THINKING..."
+
+        status.setTextColor(
+            Color.YELLOW
+        )
+
+        scope.launch {
+
+            val result =
+                localAI.ask(
+                    prompt
+                )
+
+            if (result.isSuccess) {
+
+                appendMessage(
+                    "JARVIS",
+                    result.getOrNull()
+                        ?: ""
+                )
+
+                status.text =
+                    "● LOCAL GEMMA • READY"
+
+                status.setTextColor(
+                    Color.rgb(
+                        0,
+                        210,
+                        255
+                    )
+                )
+
+            } else {
+
+                appendMessage(
+                    "ERROR",
+                    result
+                        .exceptionOrNull()
+                        ?.message
+                        ?: "Unknown error"
+                )
+
+                status.text =
+                    "● LOCAL AI ERROR"
+
+                status.setTextColor(
+                    Color.RED
+                )
+            }
+
+            askButton.isEnabled =
+                true
+        }
     }
 
-    private fun format(
-        bytes: Long
-    ): String {
+    private fun appendMessage(
+        speaker: String,
+        message: String
+    ) {
 
-        if (bytes <= 0L) {
-            return "0 B"
+        val current =
+            chat.text
+                .toString()
+
+        chat.text =
+            current +
+                "\n\n" +
+                speaker +
+                ":\n" +
+                message
+
+        chat.post {
+            val parent =
+                chat.parent
+
+            if (parent is ScrollView) {
+                parent.fullScroll(
+                    View.FOCUS_DOWN
+                )
+            }
         }
+    }
 
-        val units =
-            arrayOf(
-                "B",
-                "KB",
-                "MB",
-                "GB"
-            )
+    private fun hideKeyboard() {
 
-        var value =
-            bytes.toDouble()
+        val manager =
+            getSystemService(
+                Context.INPUT_METHOD_SERVICE
+            ) as InputMethodManager
 
-        var index =
+        manager.hideSoftInputFromWindow(
+            input.windowToken,
             0
-
-        while (
-            value >= 1024.0 &&
-            index <
-                units.size - 1
-        ) {
-
-            value /= 1024.0
-
-            index++
-        }
-
-        return String.format(
-            Locale.US,
-            "%.2f %s",
-            value,
-            units[index]
         )
     }
 
     override fun onDestroy() {
 
-        downloadJob?.cancel()
+        localAI.close()
 
-        mainScope.cancel()
+        scope.cancel()
 
         super.onDestroy()
     }
