@@ -45,19 +45,6 @@ jobs:
           rm -rf JARVIS_V4
 
           mkdir -p JARVIS_V4/app/src/main/java/com/jarvis/v4/ai
-          mkdir -p JARVIS_V4/app/src/main/java/com/jarvis/v4/voice
-          mkdir -p JARVIS_V4/app/src/main/java/com/jarvis/v4/core
-          mkdir -p JARVIS_V4/app/src/main/java/com/jarvis/v4/actions
-          mkdir -p JARVIS_V4/app/src/main/java/com/jarvis/v4/memory
-          mkdir -p JARVIS_V4/app/src/main/java/com/jarvis/v4/phone
-          mkdir -p JARVIS_V4/app/src/main/java/com/jarvis/v4/calls
-          mkdir -p JARVIS_V4/app/src/main/java/com/jarvis/v4/notifications
-          mkdir -p JARVIS_V4/app/src/main/java/com/jarvis/v4/camera
-          mkdir -p JARVIS_V4/app/src/main/java/com/jarvis/v4/scheduler
-          mkdir -p JARVIS_V4/app/src/main/java/com/jarvis/v4/background
-          mkdir -p JARVIS_V4/app/src/main/java/com/jarvis/v4/developer
-          mkdir -p JARVIS_V4/app/src/main/java/com/jarvis/v4/modes
-          mkdir -p JARVIS_V4/app/src/main/java/com/jarvis/v4/ui
           mkdir -p JARVIS_V4/app/src/main/res/values
 
           cat > JARVIS_V4/settings.gradle.kts <<'EOF'
@@ -73,6 +60,7 @@ jobs:
 
           dependencyResolutionManagement {
               repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+
               repositories {
                   google()
                   mavenCentral()
@@ -80,6 +68,7 @@ jobs:
           }
 
           rootProject.name = "JARVIS_V4"
+
           include(":app")
           EOF
 
@@ -104,6 +93,7 @@ jobs:
 
           android {
               namespace = "com.jarvis.v4"
+
               compileSdk = 35
 
               defaultConfig {
@@ -143,11 +133,6 @@ jobs:
           }
 
           dependencies {
-              implementation("androidx.core:core-ktx:1.16.0")
-              implementation("androidx.appcompat:appcompat:1.7.0")
-              implementation("com.google.android.material:material:1.12.0")
-              implementation("androidx.activity:activity-ktx:1.10.1")
-
               implementation(
                   "org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2"
               )
@@ -160,9 +145,10 @@ jobs:
 
           cat > JARVIS_V4/app/src/main/res/values/styles.xml <<'EOF'
           <resources>
+
               <style
                   name="Theme.JarvisV4"
-                  parent="android:style/Theme.Material.Light.NoActionBar">
+                  parent="android:style/Theme.Material.NoActionBar">
 
                   <item name="android:fontFamily">sans</item>
                   <item name="android:statusBarColor">#050505</item>
@@ -170,6 +156,7 @@ jobs:
                   <item name="android:windowLightStatusBar">false</item>
 
               </style>
+
           </resources>
           EOF
 
@@ -190,11 +177,13 @@ jobs:
                       android:exported="true">
 
                       <intent-filter>
+
                           <action
                               android:name="android.intent.action.MAIN" />
 
                           <category
                               android:name="android.intent.category.LAUNCHER" />
+
                       </intent-filter>
 
                   </activity>
@@ -218,12 +207,17 @@ jobs:
           data class DownloadProgress(
               val downloaded: Long,
               val total: Long,
-              val speedBytesPerSecond: Long
+              val speed: Long
           ) {
               val percent: Int
                   get() {
-                      if (total <= 0L) return 0
-                      return ((downloaded * 100L) / total)
+                      if (total <= 0L) {
+                          return 0
+                      }
+
+                      return (
+                          (downloaded * 100L) / total
+                      )
                           .coerceIn(0L, 100L)
                           .toInt()
                   }
@@ -234,25 +228,28 @@ jobs:
           ) {
 
               companion object {
+
                   const val MODEL_NAME =
                       "gemma-4-E2B-it.litertlm"
 
                   private const val TEMP_NAME =
                       "gemma-4-E2B-it.litertlm.part"
 
-                  private const val MODEL_DIRECTORY =
+                  private const val DIRECTORY =
                       "litert_models"
 
                   private const val MODEL_URL =
-                      "https://huggingface.co/litert-community/" +
-                          "gemma-4-E2B-it-litert-lm/resolve/main/" +
-                          "gemma-4-E2B-it.litertlm"
+                      "https://huggingface.co/" +
+                      "litert-community/" +
+                      "gemma-4-E2B-it-litert-lm/" +
+                      "resolve/main/" +
+                      "gemma-4-E2B-it.litertlm"
               }
 
               private val directory: File
                   get() = File(
                       context.filesDir,
-                      MODEL_DIRECTORY
+                      DIRECTORY
                   )
 
               val modelFile: File
@@ -272,27 +269,23 @@ jobs:
                       modelFile.length() > 0L
               }
 
-              fun installedSize(): Long {
-                  return if (modelFile.exists()) {
-                      modelFile.length()
-                  } else {
-                      0L
-                  }
-              }
-
               suspend fun download(
-                  onProgress: suspend (DownloadProgress) -> Unit
+                  onProgress:
+                      suspend (DownloadProgress) -> Unit
               ): Result<Unit> =
                   withContext(Dispatchers.IO) {
 
                       try {
+
                           directory.mkdirs()
 
                           if (isInstalled()) {
-                              return@withContext Result.success(Unit)
+                              return@withContext Result.success(
+                                  Unit
+                              )
                           }
 
-                          var existingBytes =
+                          var startByte =
                               if (tempFile.exists()) {
                                   tempFile.length()
                               } else {
@@ -300,34 +293,42 @@ jobs:
                               }
 
                           var connection =
-                              openConnection(existingBytes)
+                              openConnection(startByte)
 
                           var responseCode =
                               connection.responseCode
 
                           if (
-                              existingBytes > 0L &&
-                              responseCode == HttpURLConnection.HTTP_OK
+                              startByte > 0L &&
+                              responseCode ==
+                                  HttpURLConnection.HTTP_OK
                           ) {
+
                               connection.disconnect()
+
                               tempFile.delete()
-                              existingBytes = 0L
-                              connection = openConnection(0L)
-                              responseCode = connection.responseCode
+
+                              startByte = 0L
+
+                              connection =
+                                  openConnection(0L)
+
+                              responseCode =
+                                  connection.responseCode
                           }
 
                           if (
                               responseCode !=
-                              HttpURLConnection.HTTP_OK &&
+                                  HttpURLConnection.HTTP_OK &&
                               responseCode !=
-                              HttpURLConnection.HTTP_PARTIAL
+                                  HttpURLConnection.HTTP_PARTIAL
                           ) {
+
                               connection.disconnect()
 
                               return@withContext Result.failure(
                                   Exception(
-                                      "Download server returned HTTP " +
-                                          responseCode
+                                      "HTTP error: $responseCode"
                                   )
                               )
                           }
@@ -343,7 +344,11 @@ jobs:
                                   responseCode ==
                                       HttpURLConnection.HTTP_PARTIAL
                               ) {
-                                  existingBytes + contentLength
+                                  if (contentLength > 0L) {
+                                      startByte + contentLength
+                                  } else {
+                                      -1L
+                                  }
                               } else {
                                   contentLength
                               }
@@ -357,24 +362,30 @@ jobs:
                                   "rw"
                               )
 
-                          if (existingBytes > 0L) {
-                              output.seek(existingBytes)
+                          if (startByte > 0L) {
+                              output.seek(startByte)
                           } else {
                               output.setLength(0L)
                           }
 
-                          val buffer = ByteArray(1024 * 1024)
+                          val buffer =
+                              ByteArray(1024 * 1024)
 
-                          var downloaded = existingBytes
-                          var lastTime = System.currentTimeMillis()
-                          var lastBytes = downloaded
+                          var downloaded =
+                              startByte
+
+                          var lastBytes =
+                              downloaded
+
+                          var lastTime =
+                              System.currentTimeMillis()
 
                           while (true) {
 
                               val count =
                                   input.read(buffer)
 
-                              if (count == -1) {
+                              if (count < 0) {
                                   break
                               }
 
@@ -392,15 +403,17 @@ jobs:
                               if (
                                   now - lastTime >= 500L
                               ) {
+
                                   val elapsed =
                                       now - lastTime
 
                                   val speed =
                                       if (elapsed > 0L) {
                                           (
-                                              (downloaded -
-                                                  lastBytes) *
-                                                  1000L
+                                              (
+                                                  downloaded -
+                                                      lastBytes
+                                              ) * 1000L
                                           ) / elapsed
                                       } else {
                                           0L
@@ -408,36 +421,43 @@ jobs:
 
                                   onProgress(
                                       DownloadProgress(
-                                          downloaded = downloaded,
-                                          total = totalBytes,
-                                          speedBytesPerSecond = speed
+                                          downloaded,
+                                          totalBytes,
+                                          speed
                                       )
                                   )
 
-                                  lastTime = now
-                                  lastBytes = downloaded
+                                  lastBytes =
+                                      downloaded
+
+                                  lastTime =
+                                      now
                               }
                           }
 
                           output.close()
+
                           input.close()
+
                           connection.disconnect()
 
                           if (
                               totalBytes > 0L &&
                               downloaded < totalBytes
                           ) {
+
                               return@withContext Result.failure(
                                   Exception(
-                                      "Download ended before completion."
+                                      "Download incomplete."
                                   )
                               )
                           }
 
                           if (downloaded <= 0L) {
+
                               return@withContext Result.failure(
                                   Exception(
-                                      "Downloaded model is empty."
+                                      "Downloaded file is empty."
                                   )
                               )
                           }
@@ -446,19 +466,24 @@ jobs:
                               modelFile.delete()
                           }
 
-                          if (!tempFile.renameTo(modelFile)) {
+                          if (
+                              !tempFile.renameTo(
+                                  modelFile
+                              )
+                          ) {
+
                               return@withContext Result.failure(
                                   Exception(
-                                      "Could not install downloaded model."
+                                      "Model installation failed."
                                   )
                               )
                           }
 
                           onProgress(
                               DownloadProgress(
-                                  downloaded = downloaded,
-                                  total = downloaded,
-                                  speedBytesPerSecond = 0L
+                                  downloaded,
+                                  downloaded,
+                                  0L
                               )
                           )
 
@@ -484,11 +509,17 @@ jobs:
                           .openConnection()
                           as HttpURLConnection
 
-                  connection.connectTimeout = 30000
-                  connection.readTimeout = 30000
-                  connection.instanceFollowRedirects = true
+                  connection.connectTimeout =
+                      30000
+
+                  connection.readTimeout =
+                      30000
+
+                  connection.instanceFollowRedirects =
+                      true
 
                   if (startByte > 0L) {
+
                       connection.setRequestProperty(
                           "Range",
                           "bytes=$startByte-"
@@ -498,12 +529,6 @@ jobs:
                   connection.connect()
 
                   return connection
-              }
-
-              fun deletePartialDownload() {
-                  if (tempFile.exists()) {
-                      tempFile.delete()
-                  }
               }
           }
           EOF
@@ -525,37 +550,27 @@ jobs:
               private val context: Context
           ) {
 
-              companion object {
-                  private const val MODEL_NAME =
-                      "gemma-4-E2B-it.litertlm"
+              private var engine: Engine? =
+                  null
 
-                  private const val MODEL_DIRECTORY =
-                      "litert_models"
-              }
-
-              private var engine: Engine? = null
-              private var conversation: Conversation? = null
-              private var initialized = false
+              private var conversation:
+                  Conversation? = null
 
               private val modelFile: File
                   get() = File(
                       File(
                           context.filesDir,
-                          MODEL_DIRECTORY
+                          "litert_models"
                       ),
-                      MODEL_NAME
+                      ModelDownloader.MODEL_NAME
                   )
 
-              suspend fun initialize(): Result<String> =
+              suspend fun initialize():
+                  Result<String> =
                   withContext(Dispatchers.IO) {
 
-                      if (initialized) {
-                          return@withContext Result.success(
-                              "Local Gemma is already ready."
-                          )
-                      }
-
                       if (!modelFile.exists()) {
+
                           return@withContext Result.failure(
                               Exception(
                                   "Gemma model is not installed."
@@ -565,23 +580,24 @@ jobs:
 
                       try {
 
-                          val config = EngineConfig(
-                              modelPath =
-                                  modelFile.absolutePath,
-                              backend = Backend.CPU()
-                          )
-
                           val newEngine =
-                              Engine(config)
+                              Engine(
+                                  EngineConfig(
+                                      modelPath =
+                                          modelFile.absolutePath,
+                                      backend =
+                                          Backend.CPU()
+                                  )
+                              )
 
                           newEngine.initialize()
 
-                          engine = newEngine
+                          engine =
+                              newEngine
 
                           conversation =
-                              newEngine.createConversation()
-
-                          initialized = true
+                              newEngine
+                                  .createConversation()
 
                           Result.success(
                               "Local Gemma is ready."
@@ -589,22 +605,12 @@ jobs:
 
                       } catch (e: Exception) {
 
-                          try {
-                              engine?.close()
-                          } catch (_: Exception) {
-                          }
-
-                          engine = null
-                          conversation = null
-                          initialized = false
+                          close()
 
                           Result.failure(
                               Exception(
-                                  "Local AI initialization failed: " +
-                                      (
-                                          e.message
-                                              ?: "Unknown error"
-                                      )
+                                  e.message
+                                      ?: "Local AI failed."
                               )
                           )
                       }
@@ -615,20 +621,17 @@ jobs:
               ): Result<String> =
                   withContext(Dispatchers.IO) {
 
-                      if (prompt.isBlank()) {
-                          return@withContext Result.failure(
-                              Exception("Prompt is empty.")
-                          )
-                      }
+                      if (conversation == null) {
 
-                      if (!initialized) {
-                          val result = initialize()
+                          val init =
+                              initialize()
 
-                          if (result.isFailure) {
+                          if (init.isFailure) {
+
                               return@withContext Result.failure(
-                                  result.exceptionOrNull()
+                                  init.exceptionOrNull()
                                       ?: Exception(
-                                          "Local AI initialization failed."
+                                          "Local AI failed."
                                       )
                               )
                           }
@@ -636,70 +639,32 @@ jobs:
 
                       try {
 
-                          val currentConversation =
-                              conversation
-                                  ?: return@withContext Result.failure(
-                                      Exception(
-                                          "Conversation is unavailable."
-                                      )
-                                  )
-
-                          val fullPrompt = """
-                              You are JARVIS, a personal AI assistant.
-
-                              Answer naturally and concisely.
-
-                              The user may speak English,
-                              Hindi, or Hinglish.
-
-                              Keep answers suitable
-                              for a voice assistant.
-
-                              User:
-                              $prompt
-                          """.trimIndent()
-
-                          val response =
+                          val output =
                               StringBuilder()
 
-                          currentConversation
-                              .sendMessageAsync(fullPrompt)
+                          conversation!!
+                              .sendMessageAsync(prompt)
                               .collect { message ->
-                                  response.append(
+
+                                  output.append(
                                       message.toString()
                                   )
                               }
 
-                          val answer =
-                              response.toString().trim()
-
-                          if (answer.isBlank()) {
-                              return@withContext Result.failure(
-                                  Exception(
-                                      "Local Gemma returned an empty response."
-                                  )
-                              )
-                          }
-
-                          Result.success(answer)
+                          Result.success(
+                              output.toString().trim()
+                          )
 
                       } catch (e: Exception) {
 
                           Result.failure(
                               Exception(
-                                  "Local AI error: " +
-                                      (
-                                          e.message
-                                              ?: "Unknown error"
-                                      )
-                            )
+                                  e.message
+                                      ?: "Local AI error."
+                              )
                           )
                       }
                   }
-
-              fun isModelInstalled(): Boolean {
-                  return modelFile.exists()
-              }
 
               fun close() {
 
@@ -713,9 +678,11 @@ jobs:
                   } catch (_: Exception) {
                   }
 
-                  conversation = null
-                  engine = null
-                  initialized = false
+                  conversation =
+                      null
+
+                  engine =
+                      null
               }
           }
           EOF
@@ -723,6 +690,7 @@ jobs:
           cat > JARVIS_V4/app/src/main/java/com/jarvis/v4/MainActivity.kt <<'EOF'
           package com.jarvis.v4
 
+          import android.app.Activity
           import android.graphics.Color
           import android.os.Bundle
           import android.view.Gravity
@@ -731,37 +699,59 @@ jobs:
           import android.widget.LinearLayout
           import android.widget.ProgressBar
           import android.widget.TextView
-          import androidx.appcompat.app.AppCompatActivity
-          import androidx.lifecycle.lifecycleScope
           import com.jarvis.v4.ai.ModelDownloader
+          import kotlinx.coroutines.CoroutineScope
+          import kotlinx.coroutines.Dispatchers
+          import kotlinx.coroutines.Job
+          import kotlinx.coroutines.SupervisorJob
+          import kotlinx.coroutines.cancel
           import kotlinx.coroutines.launch
           import java.util.Locale
 
-          class MainActivity : AppCompatActivity() {
+          class MainActivity : Activity() {
 
-              private lateinit var downloader: ModelDownloader
+              private lateinit var downloader:
+                  ModelDownloader
 
-              private lateinit var title: TextView
-              private lateinit var subtitle: TextView
-              private lateinit var status: TextView
-              private lateinit var progress: ProgressBar
-              private lateinit var details: TextView
-              private lateinit var button: Button
+              private lateinit var status:
+                  TextView
+
+              private lateinit var details:
+                  TextView
+
+              private lateinit var progress:
+                  ProgressBar
+
+              private lateinit var button:
+                  Button
+
+              private var downloadJob:
+                  Job? = null
+
+              private val mainScope =
+                  CoroutineScope(
+                      Dispatchers.Main +
+                          SupervisorJob()
+                  )
 
               override fun onCreate(
                   savedInstanceState: Bundle?
               ) {
-                  super.onCreate(savedInstanceState)
+                  super.onCreate(
+                      savedInstanceState
+                  )
 
                   downloader =
                       ModelDownloader(this)
 
                   createScreen()
 
-                  if (downloader.isInstalled()) {
+                  if (
+                      downloader.isInstalled()
+                  ) {
                       showInstalled()
                   } else {
-                      showDownloadReady()
+                      showReady()
                   }
               }
 
@@ -778,7 +768,7 @@ jobs:
 
                   root.setPadding(
                       40,
-                      80,
+                      70,
                       40,
                       40
                   )
@@ -787,7 +777,7 @@ jobs:
                       Color.rgb(5, 8, 12)
                   )
 
-                  title =
+                  val title =
                       TextView(this)
 
                   title.text =
@@ -796,12 +786,12 @@ jobs:
                   title.textSize =
                       34f
 
+                  title.gravity =
+                      Gravity.CENTER
+
                   title.setTextColor(
                       Color.WHITE
                   )
-
-                  title.gravity =
-                      Gravity.CENTER
 
                   root.addView(
                       title,
@@ -811,7 +801,7 @@ jobs:
                       )
                   )
 
-                  subtitle =
+                  val subtitle =
                       TextView(this)
 
                   subtitle.text =
@@ -820,12 +810,16 @@ jobs:
                   subtitle.textSize =
                       18f
 
-                  subtitle.setTextColor(
-                      Color.rgb(0, 210, 255)
-                  )
-
                   subtitle.gravity =
                       Gravity.CENTER
+
+                  subtitle.setTextColor(
+                      Color.rgb(
+                          0,
+                          210,
+                          255
+                      )
+                  )
 
                   val subtitleParams =
                       LinearLayout.LayoutParams(
@@ -847,12 +841,12 @@ jobs:
                   status.textSize =
                       22f
 
+                  status.gravity =
+                      Gravity.CENTER
+
                   status.setTextColor(
                       Color.WHITE
                   )
-
-                  status.gravity =
-                      Gravity.CENTER
 
                   val statusParams =
                       LinearLayout.LayoutParams(
@@ -872,12 +866,15 @@ jobs:
                       ProgressBar(
                           this,
                           null,
-                          android.R.attr.progressBarStyleHorizontal
+                          android.R.attr
+                              .progressBarStyleHorizontal
                       )
 
-                  progress.max = 100
+                  progress.max =
+                      100
 
-                  progress.progress = 0
+                  progress.progress =
+                      0
 
                   val progressParams =
                       LinearLayout.LayoutParams(
@@ -899,12 +896,12 @@ jobs:
                   details.textSize =
                       15f
 
+                  details.gravity =
+                      Gravity.CENTER
+
                   details.setTextColor(
                       Color.LTGRAY
                   )
-
-                  details.gravity =
-                      Gravity.CENTER
 
                   val detailsParams =
                       LinearLayout.LayoutParams(
@@ -923,9 +920,6 @@ jobs:
                   button =
                       Button(this)
 
-                  button.text =
-                      "DOWNLOAD & INSTALL"
-
                   val buttonParams =
                       LinearLayout.LayoutParams(
                           -1,
@@ -943,14 +937,14 @@ jobs:
                   setContentView(root)
               }
 
-              private fun showDownloadReady() {
+              private fun showReady() {
 
                   status.text =
                       "Gemma 4 E2B"
 
                   details.text =
                       "2.58 GB • On-device AI\n" +
-                          "Private local inference"
+                      "Private local inference"
 
                   progress.visibility =
                       View.VISIBLE
@@ -980,63 +974,63 @@ jobs:
                   details.text =
                       "Please keep JARVIS open."
 
-                  lifecycleScope.launch {
+                  downloadJob =
+                      mainScope.launch {
 
-                      val result =
-                          downloader.download { data ->
+                          val result =
+                              downloader.download {
 
-                              runOnUiThread {
+                                  data ->
 
-                                  progress.progress =
-                                      data.percent
+                                  runOnUiThread {
 
-                                  status.text =
-                                      "Downloading Gemma..."
+                                      progress.progress =
+                                          data.percent
 
-                                  val downloaded =
-                                      formatBytes(
-                                          data.downloaded
-                                      )
+                                      status.text =
+                                          "Downloading Gemma..."
 
-                                  val total =
-                                      if (data.total > 0L) {
-                                          formatBytes(
+                                      details.text =
+                                          data.percent
+                                              .toString() +
+                                          "%\n" +
+                                          format(
+                                              data.downloaded
+                                          ) +
+                                          " / " +
+                                          format(
                                               data.total
-                                          )
-                                      } else {
-                                          "Unknown"
-                                      }
-
-                                  val speed =
-                                      formatBytes(
-                                          data.speedBytesPerSecond
-                                      )
-
-                                  details.text =
-                                      "${data.percent}%\n" +
-                                          "$downloaded / $total\n" +
-                                          "$speed/s"
+                                          ) +
+                                          "\n" +
+                                          format(
+                                              data.speed
+                                          ) +
+                                          "/s"
+                                  }
                               }
+
+                          if (
+                              result.isSuccess
+                          ) {
+                              showInstalled()
+                          } else {
+
+                              button.isEnabled =
+                                  true
+
+                              button.text =
+                                  "RETRY DOWNLOAD"
+
+                              status.text =
+                                  "Download failed"
+
+                              details.text =
+                                  result
+                                      .exceptionOrNull()
+                                      ?.message
+                                      ?: "Unknown error"
                           }
-
-                      if (result.isSuccess) {
-                          showInstalled()
-                      } else {
-                          button.isEnabled =
-                              true
-
-                          button.text =
-                              "RETRY DOWNLOAD"
-
-                          status.text =
-                              "Download failed"
-
-                          details.text =
-                              result.exceptionOrNull()
-                                  ?.message
-                                  ?: "Unknown error"
                       }
-                  }
               }
 
               private fun showInstalled() {
@@ -1045,7 +1039,11 @@ jobs:
                       "✓ Gemma 4 E2B Installed"
 
                   status.setTextColor(
-                      Color.rgb(50, 230, 120)
+                      Color.rgb(
+                          50,
+                          230,
+                          120
+                      )
                   )
 
                   progress.progress =
@@ -1053,7 +1051,7 @@ jobs:
 
                   details.text =
                       "Local AI is ready.\n" +
-                          "Model stored securely on this device."
+                      "Model installed on device."
 
                   button.text =
                       "LOCAL AI READY"
@@ -1062,7 +1060,7 @@ jobs:
                       false
               }
 
-              private fun formatBytes(
+              private fun format(
                   bytes: Long
               ): String {
 
@@ -1085,10 +1083,13 @@ jobs:
                       0
 
                   while (
-                      value >= 1024 &&
-                      index < units.size - 1
+                      value >= 1024.0 &&
+                      index <
+                          units.size - 1
                   ) {
+
                       value /= 1024.0
+
                       index++
                   }
 
@@ -1099,141 +1100,16 @@ jobs:
                       units[index]
                   )
               }
-          }
-          EOF
 
-          cat > JARVIS_V4/app/src/main/java/com/jarvis/v4/ai/AIProvider.kt <<'EOF'
-          package com.jarvis.v4.ai
+              override fun onDestroy() {
 
-          interface AIProvider {
-              suspend fun ask(
-                  prompt: String
-              ): Result<String>
-          }
-          EOF
+                  downloadJob?.cancel()
 
-          cat > JARVIS_V4/app/src/main/java/com/jarvis/v4/ai/AIRouter.kt <<'EOF'
-          package com.jarvis.v4.ai
+                  mainScope.cancel()
 
-          class AIRouter(
-              private val localAI: LocalAI
-          ) {
-              suspend fun ask(
-                  prompt: String
-              ): Result<String> {
-                  return localAI.ask(prompt)
+                  super.onDestroy()
               }
           }
-          EOF
-
-          cat > JARVIS_V4/app/src/main/java/com/jarvis/v4/voice/VoiceInput.kt <<'EOF'
-          package com.jarvis.v4.voice
-          class VoiceInput
-          EOF
-
-          cat > JARVIS_V4/app/src/main/java/com/jarvis/v4/voice/VoiceOutput.kt <<'EOF'
-          package com.jarvis.v4.voice
-          class VoiceOutput
-          EOF
-
-          cat > JARVIS_V4/app/src/main/java/com/jarvis/v4/core/JarvisCore.kt <<'EOF'
-          package com.jarvis.v4.core
-          class JarvisCore
-          EOF
-
-          cat > JARVIS_V4/app/src/main/java/com/jarvis/v4/actions/ActionEngine.kt <<'EOF'
-          package com.jarvis.v4.actions
-          class ActionEngine
-          EOF
-
-          cat > JARVIS_V4/app/src/main/java/com/jarvis/v4/memory/ConversationMemory.kt <<'EOF'
-          package com.jarvis.v4.memory
-          class ConversationMemory
-          EOF
-
-          cat > JARVIS_V4/app/src/main/java/com/jarvis/v4/memory/ContactMemory.kt <<'EOF'
-          package com.jarvis.v4.memory
-          class ContactMemory
-          EOF
-
-          cat > JARVIS_V4/app/src/main/java/com/jarvis/v4/memory/PreferenceMemory.kt <<'EOF'
-          package com.jarvis.v4.memory
-          class PreferenceMemory
-          EOF
-
-          cat > JARVIS_V4/app/src/main/java/com/jarvis/v4/memory/MemoryStorage.kt <<'EOF'
-          package com.jarvis.v4.memory
-          class MemoryStorage
-          EOF
-
-          cat > JARVIS_V4/app/src/main/java/com/jarvis/v4/phone/PhoneControl.kt <<'EOF'
-          package com.jarvis.v4.phone
-          class PhoneControl
-          EOF
-
-          cat > JARVIS_V4/app/src/main/java/com/jarvis/v4/calls/CallControl.kt <<'EOF'
-          package com.jarvis.v4.calls
-          class CallControl
-          EOF
-
-          cat > JARVIS_V4/app/src/main/java/com/jarvis/v4/notifications/NotificationReader.kt <<'EOF'
-          package com.jarvis.v4.notifications
-          class NotificationReader
-          EOF
-
-          cat > JARVIS_V4/app/src/main/java/com/jarvis/v4/camera/CameraControl.kt <<'EOF'
-          package com.jarvis.v4.camera
-          class CameraControl
-          EOF
-
-          cat > JARVIS_V4/app/src/main/java/com/jarvis/v4/scheduler/JarvisScheduler.kt <<'EOF'
-          package com.jarvis.v4.scheduler
-          class JarvisScheduler
-          EOF
-
-          cat > JARVIS_V4/app/src/main/java/com/jarvis/v4/background/JarvisService.kt <<'EOF'
-          package com.jarvis.v4.background
-          class JarvisService
-          EOF
-
-          cat > JARVIS_V4/app/src/main/java/com/jarvis/v4/developer/CodeAnalyzer.kt <<'EOF'
-          package com.jarvis.v4.developer
-          class CodeAnalyzer
-          EOF
-
-          cat > JARVIS_V4/app/src/main/java/com/jarvis/v4/developer/ChangePlanner.kt <<'EOF'
-          package com.jarvis.v4.developer
-          class ChangePlanner
-          EOF
-
-          cat > JARVIS_V4/app/src/main/java/com/jarvis/v4/developer/CodeGenerator.kt <<'EOF'
-          package com.jarvis.v4.developer
-          class CodeGenerator
-          EOF
-
-          cat > JARVIS_V4/app/src/main/java/com/jarvis/v4/developer/BuildManager.kt <<'EOF'
-          package com.jarvis.v4.developer
-          class BuildManager
-          EOF
-
-          cat > JARVIS_V4/app/src/main/java/com/jarvis/v4/developer/ApprovalManager.kt <<'EOF'
-          package com.jarvis.v4.developer
-          class ApprovalManager
-          EOF
-
-          cat > JARVIS_V4/app/src/main/java/com/jarvis/v4/modes/ModeManager.kt <<'EOF'
-          package com.jarvis.v4.modes
-          class ModeManager
-          EOF
-
-          cat > JARVIS_V4/app/src/main/java/com/jarvis/v4/ui/JarvisUI.kt <<'EOF'
-          package com.jarvis.v4.ui
-          class JarvisUI
-          EOF
-
-          cat > JARVIS_V4/app/src/main/java/com/jarvis/v4/ui/JarvisOrbView.kt <<'EOF'
-          package com.jarvis.v4.ui
-          class JarvisOrbView
           EOF
 
       - name: Build APK
@@ -1246,15 +1122,14 @@ jobs:
         shell: bash
         run: |
           git config user.name "github-actions[bot]"
-          git config user.email \
-            "41898282+github-actions[bot]@users.noreply.github.com"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
           git add JARVIS_V4
 
           if git diff --cached --quiet; then
             echo "No changes."
           else
-            git commit -m "Add Gemma model downloader"
+            git commit -m "Fix JARVIS V4 startup"
             git push
           fi
 
