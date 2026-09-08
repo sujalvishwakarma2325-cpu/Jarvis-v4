@@ -14,7 +14,6 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-
       - name: Checkout repository
         uses: actions/checkout@v4
 
@@ -62,6 +61,8 @@ jobs:
           mkdir -p JARVIS_V4/app/src/main/res/values
 
           cat > JARVIS_V4/settings.gradle.kts <<'EOF'
+          import org.gradle.api.initialization.resolve.RepositoriesMode
+
           pluginManagement {
               repositories {
                   google()
@@ -79,7 +80,6 @@ jobs:
           }
 
           rootProject.name = "JARVIS_V4"
-
           include(":app")
           EOF
 
@@ -160,17 +160,16 @@ jobs:
 
           cat > JARVIS_V4/app/src/main/res/values/styles.xml <<'EOF'
           <resources>
-
               <style
                   name="Theme.JarvisV4"
                   parent="android:style/Theme.Material.Light.NoActionBar">
 
                   <item name="android:fontFamily">sans</item>
-                  <item name="android:statusBarColor">#000000</item>
-                  <item name="android:navigationBarColor">#000000</item>
+                  <item name="android:statusBarColor">#050505</item>
+                  <item name="android:navigationBarColor">#050505</item>
+                  <item name="android:windowLightStatusBar">false</item>
 
               </style>
-
           </resources>
           EOF
 
@@ -191,13 +190,11 @@ jobs:
                       android:exported="true">
 
                       <intent-filter>
-
                           <action
                               android:name="android.intent.action.MAIN" />
 
                           <category
                               android:name="android.intent.category.LAUNCHER" />
-
                       </intent-filter>
 
                   </activity>
@@ -207,42 +204,306 @@ jobs:
           </manifest>
           EOF
 
-          cat > JARVIS_V4/app/src/main/java/com/jarvis/v4/MainActivity.kt <<'EOF'
-          package com.jarvis.v4
+          cat > JARVIS_V4/app/src/main/java/com/jarvis/v4/ai/ModelDownloader.kt <<'EOF'
+          package com.jarvis.v4.ai
 
-          import android.os.Bundle
-          import android.widget.TextView
-          import androidx.appcompat.app.AppCompatActivity
+          import android.content.Context
+          import kotlinx.coroutines.Dispatchers
+          import kotlinx.coroutines.withContext
+          import java.io.File
+          import java.io.RandomAccessFile
+          import java.net.HttpURLConnection
+          import java.net.URL
 
-          class MainActivity : AppCompatActivity() {
+          data class DownloadProgress(
+              val downloaded: Long,
+              val total: Long,
+              val speedBytesPerSecond: Long
+          ) {
+              val percent: Int
+                  get() {
+                      if (total <= 0L) return 0
+                      return ((downloaded * 100L) / total)
+                          .coerceIn(0L, 100L)
+                          .toInt()
+                  }
+          }
 
-              override fun onCreate(savedInstanceState: Bundle?) {
-                  super.onCreate(savedInstanceState)
+          class ModelDownloader(
+              private val context: Context
+          ) {
 
-                  val textView = TextView(this)
+              companion object {
+                  const val MODEL_NAME =
+                      "gemma-4-E2B-it.litertlm"
 
-                  textView.text = """
-                      JARVIS V4
+                  private const val TEMP_NAME =
+                      "gemma-4-E2B-it.litertlm.part"
 
-                      System initialized.
+                  private const val MODEL_DIRECTORY =
+                      "litert_models"
 
-                      Local AI:
-                      Gemma 4 E2B
+                  private const val MODEL_URL =
+                      "https://huggingface.co/litert-community/" +
+                          "gemma-4-E2B-it-litert-lm/resolve/main/" +
+                          "gemma-4-E2B-it.litertlm"
+              }
 
-                      Status:
-                      Ready
-                  """.trimIndent()
-
-                  textView.textSize = 20f
-
-                  textView.setPadding(
-                      40,
-                      80,
-                      40,
-                      40
+              private val directory: File
+                  get() = File(
+                      context.filesDir,
+                      MODEL_DIRECTORY
                   )
 
-                  setContentView(textView)
+              val modelFile: File
+                  get() = File(
+                      directory,
+                      MODEL_NAME
+                  )
+
+              private val tempFile: File
+                  get() = File(
+                      directory,
+                      TEMP_NAME
+                  )
+
+              fun isInstalled(): Boolean {
+                  return modelFile.exists() &&
+                      modelFile.length() > 0L
+              }
+
+              fun installedSize(): Long {
+                  return if (modelFile.exists()) {
+                      modelFile.length()
+                  } else {
+                      0L
+                  }
+              }
+
+              suspend fun download(
+                  onProgress: suspend (DownloadProgress) -> Unit
+              ): Result<Unit> =
+                  withContext(Dispatchers.IO) {
+
+                      try {
+                          directory.mkdirs()
+
+                          if (isInstalled()) {
+                              return@withContext Result.success(Unit)
+                          }
+
+                          var existingBytes =
+                              if (tempFile.exists()) {
+                                  tempFile.length()
+                              } else {
+                                  0L
+                              }
+
+                          var connection =
+                              openConnection(existingBytes)
+
+                          var responseCode =
+                              connection.responseCode
+
+                          if (
+                              existingBytes > 0L &&
+                              responseCode == HttpURLConnection.HTTP_OK
+                          ) {
+                              connection.disconnect()
+                              tempFile.delete()
+                              existingBytes = 0L
+                              connection = openConnection(0L)
+                              responseCode = connection.responseCode
+                          }
+
+                          if (
+                              responseCode !=
+                              HttpURLConnection.HTTP_OK &&
+                              responseCode !=
+                              HttpURLConnection.HTTP_PARTIAL
+                          ) {
+                              connection.disconnect()
+
+                              return@withContext Result.failure(
+                                  Exception(
+                                      "Download server returned HTTP " +
+                                          responseCode
+                                  )
+                              )
+                          }
+
+                          val contentLength =
+                              connection.getHeaderFieldLong(
+                                  "Content-Length",
+                                  -1L
+                              )
+
+                          val totalBytes =
+                              if (
+                                  responseCode ==
+                                      HttpURLConnection.HTTP_PARTIAL
+                              ) {
+                                  existingBytes + contentLength
+                              } else {
+                                  contentLength
+                              }
+
+                          val input =
+                              connection.inputStream
+
+                          val output =
+                              RandomAccessFile(
+                                  tempFile,
+                                  "rw"
+                              )
+
+                          if (existingBytes > 0L) {
+                              output.seek(existingBytes)
+                          } else {
+                              output.setLength(0L)
+                          }
+
+                          val buffer = ByteArray(1024 * 1024)
+
+                          var downloaded = existingBytes
+                          var lastTime = System.currentTimeMillis()
+                          var lastBytes = downloaded
+
+                          while (true) {
+
+                              val count =
+                                  input.read(buffer)
+
+                              if (count == -1) {
+                                  break
+                              }
+
+                              output.write(
+                                  buffer,
+                                  0,
+                                  count
+                              )
+
+                              downloaded += count
+
+                              val now =
+                                  System.currentTimeMillis()
+
+                              if (
+                                  now - lastTime >= 500L
+                              ) {
+                                  val elapsed =
+                                      now - lastTime
+
+                                  val speed =
+                                      if (elapsed > 0L) {
+                                          (
+                                              (downloaded -
+                                                  lastBytes) *
+                                                  1000L
+                                          ) / elapsed
+                                      } else {
+                                          0L
+                                      }
+
+                                  onProgress(
+                                      DownloadProgress(
+                                          downloaded = downloaded,
+                                          total = totalBytes,
+                                          speedBytesPerSecond = speed
+                                      )
+                                  )
+
+                                  lastTime = now
+                                  lastBytes = downloaded
+                              }
+                          }
+
+                          output.close()
+                          input.close()
+                          connection.disconnect()
+
+                          if (
+                              totalBytes > 0L &&
+                              downloaded < totalBytes
+                          ) {
+                              return@withContext Result.failure(
+                                  Exception(
+                                      "Download ended before completion."
+                                  )
+                              )
+                          }
+
+                          if (downloaded <= 0L) {
+                              return@withContext Result.failure(
+                                  Exception(
+                                      "Downloaded model is empty."
+                                  )
+                              )
+                          }
+
+                          if (modelFile.exists()) {
+                              modelFile.delete()
+                          }
+
+                          if (!tempFile.renameTo(modelFile)) {
+                              return@withContext Result.failure(
+                                  Exception(
+                                      "Could not install downloaded model."
+                                  )
+                              )
+                          }
+
+                          onProgress(
+                              DownloadProgress(
+                                  downloaded = downloaded,
+                                  total = downloaded,
+                                  speedBytesPerSecond = 0L
+                              )
+                          )
+
+                          Result.success(Unit)
+
+                      } catch (e: Exception) {
+
+                          Result.failure(
+                              Exception(
+                                  e.message
+                                      ?: "Model download failed."
+                              )
+                          )
+                      }
+                  }
+
+              private fun openConnection(
+                  startByte: Long
+              ): HttpURLConnection {
+
+                  val connection =
+                      URL(MODEL_URL)
+                          .openConnection()
+                          as HttpURLConnection
+
+                  connection.connectTimeout = 30000
+                  connection.readTimeout = 30000
+                  connection.instanceFollowRedirects = true
+
+                  if (startByte > 0L) {
+                      connection.setRequestProperty(
+                          "Range",
+                          "bytes=$startByte-"
+                      )
+                  }
+
+                  connection.connect()
+
+                  return connection
+              }
+
+              fun deletePartialDownload() {
+                  if (tempFile.exists()) {
+                      tempFile.delete()
+                  }
               }
           }
           EOF
@@ -273,23 +534,17 @@ jobs:
               }
 
               private var engine: Engine? = null
-
               private var conversation: Conversation? = null
-
               private var initialized = false
 
               private val modelFile: File
-                  get() {
-                      val directory = File(
+                  get() = File(
+                      File(
                           context.filesDir,
                           MODEL_DIRECTORY
-                      )
-
-                      return File(
-                          directory,
-                          MODEL_NAME
-                      )
-                  }
+                      ),
+                      MODEL_NAME
+                  )
 
               suspend fun initialize(): Result<String> =
                   withContext(Dispatchers.IO) {
@@ -303,15 +558,7 @@ jobs:
                       if (!modelFile.exists()) {
                           return@withContext Result.failure(
                               Exception(
-                                  """
-                                  Gemma model is not installed.
-
-                                  Required file:
-                                  $MODEL_NAME
-
-                                  Expected location:
-                                  ${modelFile.absolutePath}
-                                  """.trimIndent()
+                                  "Gemma model is not installed."
                               )
                           )
                       }
@@ -319,11 +566,13 @@ jobs:
                       try {
 
                           val config = EngineConfig(
-                              modelPath = modelFile.absolutePath,
+                              modelPath =
+                                  modelFile.absolutePath,
                               backend = Backend.CPU()
                           )
 
-                          val newEngine = Engine(config)
+                          val newEngine =
+                              Engine(config)
 
                           newEngine.initialize()
 
@@ -346,15 +595,16 @@ jobs:
                           }
 
                           engine = null
-
                           conversation = null
-
                           initialized = false
 
                           Result.failure(
                               Exception(
                                   "Local AI initialization failed: " +
-                                      (e.message ?: "Unknown error")
+                                      (
+                                          e.message
+                                              ?: "Unknown error"
+                                      )
                               )
                           )
                       }
@@ -372,7 +622,6 @@ jobs:
                       }
 
                       if (!initialized) {
-
                           val result = initialize()
 
                           if (result.isFailure) {
@@ -416,7 +665,6 @@ jobs:
                           currentConversation
                               .sendMessageAsync(fullPrompt)
                               .collect { message ->
-
                                   response.append(
                                       message.toString()
                                   )
@@ -440,27 +688,17 @@ jobs:
                           Result.failure(
                               Exception(
                                   "Local AI error: " +
-                                      (e.message ?: "Unknown error")
-                              )
+                                      (
+                                          e.message
+                                              ?: "Unknown error"
+                                      )
+                            )
                           )
                       }
                   }
 
               fun isModelInstalled(): Boolean {
                   return modelFile.exists()
-              }
-
-              fun getModelPath(): String {
-                  return modelFile.absolutePath
-              }
-
-              fun getModelSizeBytes(): Long {
-
-                  return if (modelFile.exists()) {
-                      modelFile.length()
-                  } else {
-                      0L
-                  }
               }
 
               fun close() {
@@ -476,10 +714,390 @@ jobs:
                   }
 
                   conversation = null
-
                   engine = null
-
                   initialized = false
+              }
+          }
+          EOF
+
+          cat > JARVIS_V4/app/src/main/java/com/jarvis/v4/MainActivity.kt <<'EOF'
+          package com.jarvis.v4
+
+          import android.graphics.Color
+          import android.os.Bundle
+          import android.view.Gravity
+          import android.view.View
+          import android.widget.Button
+          import android.widget.LinearLayout
+          import android.widget.ProgressBar
+          import android.widget.TextView
+          import androidx.appcompat.app.AppCompatActivity
+          import androidx.lifecycle.lifecycleScope
+          import com.jarvis.v4.ai.ModelDownloader
+          import kotlinx.coroutines.launch
+          import java.util.Locale
+
+          class MainActivity : AppCompatActivity() {
+
+              private lateinit var downloader: ModelDownloader
+
+              private lateinit var title: TextView
+              private lateinit var subtitle: TextView
+              private lateinit var status: TextView
+              private lateinit var progress: ProgressBar
+              private lateinit var details: TextView
+              private lateinit var button: Button
+
+              override fun onCreate(
+                  savedInstanceState: Bundle?
+              ) {
+                  super.onCreate(savedInstanceState)
+
+                  downloader =
+                      ModelDownloader(this)
+
+                  createScreen()
+
+                  if (downloader.isInstalled()) {
+                      showInstalled()
+                  } else {
+                      showDownloadReady()
+                  }
+              }
+
+              private fun createScreen() {
+
+                  val root =
+                      LinearLayout(this)
+
+                  root.orientation =
+                      LinearLayout.VERTICAL
+
+                  root.gravity =
+                      Gravity.CENTER_HORIZONTAL
+
+                  root.setPadding(
+                      40,
+                      80,
+                      40,
+                      40
+                  )
+
+                  root.setBackgroundColor(
+                      Color.rgb(5, 8, 12)
+                  )
+
+                  title =
+                      TextView(this)
+
+                  title.text =
+                      "JARVIS V4"
+
+                  title.textSize =
+                      34f
+
+                  title.setTextColor(
+                      Color.WHITE
+                  )
+
+                  title.gravity =
+                      Gravity.CENTER
+
+                  root.addView(
+                      title,
+                      LinearLayout.LayoutParams(
+                          -1,
+                          -2
+                      )
+                  )
+
+                  subtitle =
+                      TextView(this)
+
+                  subtitle.text =
+                      "LOCAL AI SETUP"
+
+                  subtitle.textSize =
+                      18f
+
+                  subtitle.setTextColor(
+                      Color.rgb(0, 210, 255)
+                  )
+
+                  subtitle.gravity =
+                      Gravity.CENTER
+
+                  val subtitleParams =
+                      LinearLayout.LayoutParams(
+                          -1,
+                          -2
+                      )
+
+                  subtitleParams.topMargin =
+                      25
+
+                  root.addView(
+                      subtitle,
+                      subtitleParams
+                  )
+
+                  status =
+                      TextView(this)
+
+                  status.textSize =
+                      22f
+
+                  status.setTextColor(
+                      Color.WHITE
+                  )
+
+                  status.gravity =
+                      Gravity.CENTER
+
+                  val statusParams =
+                      LinearLayout.LayoutParams(
+                          -1,
+                          -2
+                      )
+
+                  statusParams.topMargin =
+                      35
+
+                  root.addView(
+                      status,
+                      statusParams
+                  )
+
+                  progress =
+                      ProgressBar(
+                          this,
+                          null,
+                          android.R.attr.progressBarStyleHorizontal
+                      )
+
+                  progress.max = 100
+
+                  progress.progress = 0
+
+                  val progressParams =
+                      LinearLayout.LayoutParams(
+                          -1,
+                          30
+                      )
+
+                  progressParams.topMargin =
+                      30
+
+                  root.addView(
+                      progress,
+                      progressParams
+                  )
+
+                  details =
+                      TextView(this)
+
+                  details.textSize =
+                      15f
+
+                  details.setTextColor(
+                      Color.LTGRAY
+                  )
+
+                  details.gravity =
+                      Gravity.CENTER
+
+                  val detailsParams =
+                      LinearLayout.LayoutParams(
+                          -1,
+                          -2
+                      )
+
+                  detailsParams.topMargin =
+                      15
+
+                  root.addView(
+                      details,
+                      detailsParams
+                  )
+
+                  button =
+                      Button(this)
+
+                  button.text =
+                      "DOWNLOAD & INSTALL"
+
+                  val buttonParams =
+                      LinearLayout.LayoutParams(
+                          -1,
+                          60
+                      )
+
+                  buttonParams.topMargin =
+                      45
+
+                  root.addView(
+                      button,
+                      buttonParams
+                  )
+
+                  setContentView(root)
+              }
+
+              private fun showDownloadReady() {
+
+                  status.text =
+                      "Gemma 4 E2B"
+
+                  details.text =
+                      "2.58 GB • On-device AI\n" +
+                          "Private local inference"
+
+                  progress.visibility =
+                      View.VISIBLE
+
+                  progress.progress =
+                      0
+
+                  button.isEnabled =
+                      true
+
+                  button.text =
+                      "DOWNLOAD & INSTALL"
+
+                  button.setOnClickListener {
+                      startDownload()
+                  }
+              }
+
+              private fun startDownload() {
+
+                  button.isEnabled =
+                      false
+
+                  status.text =
+                      "Preparing download..."
+
+                  details.text =
+                      "Please keep JARVIS open."
+
+                  lifecycleScope.launch {
+
+                      val result =
+                          downloader.download { data ->
+
+                              runOnUiThread {
+
+                                  progress.progress =
+                                      data.percent
+
+                                  status.text =
+                                      "Downloading Gemma..."
+
+                                  val downloaded =
+                                      formatBytes(
+                                          data.downloaded
+                                      )
+
+                                  val total =
+                                      if (data.total > 0L) {
+                                          formatBytes(
+                                              data.total
+                                          )
+                                      } else {
+                                          "Unknown"
+                                      }
+
+                                  val speed =
+                                      formatBytes(
+                                          data.speedBytesPerSecond
+                                      )
+
+                                  details.text =
+                                      "${data.percent}%\n" +
+                                          "$downloaded / $total\n" +
+                                          "$speed/s"
+                              }
+                          }
+
+                      if (result.isSuccess) {
+                          showInstalled()
+                      } else {
+                          button.isEnabled =
+                              true
+
+                          button.text =
+                              "RETRY DOWNLOAD"
+
+                          status.text =
+                              "Download failed"
+
+                          details.text =
+                              result.exceptionOrNull()
+                                  ?.message
+                                  ?: "Unknown error"
+                      }
+                  }
+              }
+
+              private fun showInstalled() {
+
+                  status.text =
+                      "✓ Gemma 4 E2B Installed"
+
+                  status.setTextColor(
+                      Color.rgb(50, 230, 120)
+                  )
+
+                  progress.progress =
+                      100
+
+                  details.text =
+                      "Local AI is ready.\n" +
+                          "Model stored securely on this device."
+
+                  button.text =
+                      "LOCAL AI READY"
+
+                  button.isEnabled =
+                      false
+              }
+
+              private fun formatBytes(
+                  bytes: Long
+              ): String {
+
+                  if (bytes <= 0L) {
+                      return "0 B"
+                  }
+
+                  val units =
+                      arrayOf(
+                          "B",
+                          "KB",
+                          "MB",
+                          "GB"
+                      )
+
+                  var value =
+                      bytes.toDouble()
+
+                  var index =
+                      0
+
+                  while (
+                      value >= 1024 &&
+                      index < units.size - 1
+                  ) {
+                      value /= 1024.0
+                      index++
+                  }
+
+                  return String.format(
+                      Locale.US,
+                      "%.2f %s",
+                      value,
+                      units[index]
+                  )
               }
           }
           EOF
@@ -488,7 +1106,6 @@ jobs:
           package com.jarvis.v4.ai
 
           interface AIProvider {
-
               suspend fun ask(
                   prompt: String
               ): Result<String>
@@ -501,201 +1118,123 @@ jobs:
           class AIRouter(
               private val localAI: LocalAI
           ) {
-
               suspend fun ask(
                   prompt: String
               ): Result<String> {
-
                   return localAI.ask(prompt)
-              }
-          }
-          EOF
-
-          cat > JARVIS_V4/app/src/main/java/com/jarvis/v4/ai/ClaudeAI.kt <<'EOF'
-          package com.jarvis.v4.ai
-
-          class ClaudeAI : AIProvider {
-
-              override suspend fun ask(
-                  prompt: String
-              ): Result<String> {
-
-                  return Result.failure(
-                      Exception(
-                          "Claude provider not configured yet."
-                      )
-                  )
-              }
-          }
-          EOF
-
-          cat > JARVIS_V4/app/src/main/java/com/jarvis/v4/ai/GeminiAI.kt <<'EOF'
-          package com.jarvis.v4.ai
-
-          class GeminiAI : AIProvider {
-
-              override suspend fun ask(
-                  prompt: String
-              ): Result<String> {
-
-                  return Result.failure(
-                      Exception(
-                          "Gemini provider not configured yet."
-                      )
-                  )
               }
           }
           EOF
 
           cat > JARVIS_V4/app/src/main/java/com/jarvis/v4/voice/VoiceInput.kt <<'EOF'
           package com.jarvis.v4.voice
-
           class VoiceInput
           EOF
 
           cat > JARVIS_V4/app/src/main/java/com/jarvis/v4/voice/VoiceOutput.kt <<'EOF'
           package com.jarvis.v4.voice
-
           class VoiceOutput
           EOF
 
           cat > JARVIS_V4/app/src/main/java/com/jarvis/v4/core/JarvisCore.kt <<'EOF'
           package com.jarvis.v4.core
-
           class JarvisCore
           EOF
 
           cat > JARVIS_V4/app/src/main/java/com/jarvis/v4/actions/ActionEngine.kt <<'EOF'
           package com.jarvis.v4.actions
-
           class ActionEngine
           EOF
 
           cat > JARVIS_V4/app/src/main/java/com/jarvis/v4/memory/ConversationMemory.kt <<'EOF'
           package com.jarvis.v4.memory
-
           class ConversationMemory
           EOF
 
           cat > JARVIS_V4/app/src/main/java/com/jarvis/v4/memory/ContactMemory.kt <<'EOF'
           package com.jarvis.v4.memory
-
           class ContactMemory
           EOF
 
           cat > JARVIS_V4/app/src/main/java/com/jarvis/v4/memory/PreferenceMemory.kt <<'EOF'
           package com.jarvis.v4.memory
-
           class PreferenceMemory
           EOF
 
           cat > JARVIS_V4/app/src/main/java/com/jarvis/v4/memory/MemoryStorage.kt <<'EOF'
           package com.jarvis.v4.memory
-
           class MemoryStorage
           EOF
 
           cat > JARVIS_V4/app/src/main/java/com/jarvis/v4/phone/PhoneControl.kt <<'EOF'
           package com.jarvis.v4.phone
-
           class PhoneControl
-          EOF
-
-          cat > JARVIS_V4/app/src/main/java/com/jarvis/v4/phone/AppControl.kt <<'EOF'
-          package com.jarvis.v4.phone
-
-          class AppControl
           EOF
 
           cat > JARVIS_V4/app/src/main/java/com/jarvis/v4/calls/CallControl.kt <<'EOF'
           package com.jarvis.v4.calls
-
           class CallControl
           EOF
 
           cat > JARVIS_V4/app/src/main/java/com/jarvis/v4/notifications/NotificationReader.kt <<'EOF'
           package com.jarvis.v4.notifications
-
           class NotificationReader
           EOF
 
           cat > JARVIS_V4/app/src/main/java/com/jarvis/v4/camera/CameraControl.kt <<'EOF'
           package com.jarvis.v4.camera
-
           class CameraControl
           EOF
 
           cat > JARVIS_V4/app/src/main/java/com/jarvis/v4/scheduler/JarvisScheduler.kt <<'EOF'
           package com.jarvis.v4.scheduler
-
           class JarvisScheduler
           EOF
 
           cat > JARVIS_V4/app/src/main/java/com/jarvis/v4/background/JarvisService.kt <<'EOF'
           package com.jarvis.v4.background
-
           class JarvisService
           EOF
 
           cat > JARVIS_V4/app/src/main/java/com/jarvis/v4/developer/CodeAnalyzer.kt <<'EOF'
           package com.jarvis.v4.developer
-
           class CodeAnalyzer
           EOF
 
           cat > JARVIS_V4/app/src/main/java/com/jarvis/v4/developer/ChangePlanner.kt <<'EOF'
           package com.jarvis.v4.developer
-
           class ChangePlanner
           EOF
 
           cat > JARVIS_V4/app/src/main/java/com/jarvis/v4/developer/CodeGenerator.kt <<'EOF'
           package com.jarvis.v4.developer
-
           class CodeGenerator
           EOF
 
           cat > JARVIS_V4/app/src/main/java/com/jarvis/v4/developer/BuildManager.kt <<'EOF'
           package com.jarvis.v4.developer
-
           class BuildManager
           EOF
 
           cat > JARVIS_V4/app/src/main/java/com/jarvis/v4/developer/ApprovalManager.kt <<'EOF'
           package com.jarvis.v4.developer
-
           class ApprovalManager
           EOF
 
           cat > JARVIS_V4/app/src/main/java/com/jarvis/v4/modes/ModeManager.kt <<'EOF'
           package com.jarvis.v4.modes
-
           class ModeManager
           EOF
 
           cat > JARVIS_V4/app/src/main/java/com/jarvis/v4/ui/JarvisUI.kt <<'EOF'
           package com.jarvis.v4.ui
-
           class JarvisUI
           EOF
 
           cat > JARVIS_V4/app/src/main/java/com/jarvis/v4/ui/JarvisOrbView.kt <<'EOF'
           package com.jarvis.v4.ui
-
           class JarvisOrbView
           EOF
-
-          cat > JARVIS_V4/app/src/main/java/com/jarvis/v4/ui/JarvisTheme.kt <<'EOF'
-          package com.jarvis.v4.ui
-
-          class JarvisTheme
-          EOF
-
-      - name: Verify generated files
-        run: |
-          echo "===== JARVIS V4 FILES ====="
-          find JARVIS_V4 -type f | sort
-          echo "==========================="
 
       - name: Build APK
         working-directory: JARVIS_V4
@@ -706,17 +1245,16 @@ jobs:
       - name: Commit generated project
         shell: bash
         run: |
-          set -e
-
           git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config user.email \
+            "41898282+github-actions[bot]@users.noreply.github.com"
 
           git add JARVIS_V4
 
           if git diff --cached --quiet; then
-            echo "No JARVIS V4 changes to commit."
+            echo "No changes."
           else
-            git commit -m "Generate JARVIS V4 project"
+            git commit -m "Add Gemma model downloader"
             git push
           fi
 
