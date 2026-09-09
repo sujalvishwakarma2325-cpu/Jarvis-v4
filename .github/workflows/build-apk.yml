@@ -38,6 +38,23 @@ jobs:
         with:
           gradle-version: 8.11.1
 
+      - name: Restore persistent signing key
+        env:
+          KEYSTORE_B64: ${{ secrets.JARVIS_KEYSTORE_B64 }}
+        run: |
+          set -e
+
+          test -n "$KEYSTORE_B64"
+
+          mkdir -p "$RUNNER_TEMP/jarvis-signing"
+
+          echo "$KEYSTORE_B64" |
+            base64 --decode >
+            "$RUNNER_TEMP/jarvis-signing/jarvis-v4-release.jks"
+
+          test -s \
+            "$RUNNER_TEMP/jarvis-signing/jarvis-v4-release.jks"
+
       - name: Create JARVIS V4 project
         shell: bash
         run: |
@@ -45,9 +62,14 @@ jobs:
 
           rm -rf JARVIS_V4
 
-          mkdir -p JARVIS_V4/app/src/main/java/com/jarvis/v4/ai
-          mkdir -p JARVIS_V4/app/src/main/java/com/jarvis/v4
-          mkdir -p JARVIS_V4/app/src/main/res/values
+          mkdir -p \
+            JARVIS_V4/app/src/main/java/com/jarvis/v4/ai
+
+          mkdir -p \
+            JARVIS_V4/app/src/main/java/com/jarvis/v4
+
+          mkdir -p \
+            JARVIS_V4/app/src/main/res/values
 
           cat > JARVIS_V4/settings.gradle.kts <<'EOF'
           import org.gradle.api.initialization.resolve.RepositoriesMode
@@ -104,8 +126,36 @@ jobs:
                   applicationId = "com.jarvis.v4"
                   minSdk = 26
                   targetSdk = 35
-                  versionCode = 2
-                  versionName = "4.1"
+                  versionCode = 3
+                  versionName = "4.2"
+              }
+
+              signingConfigs {
+                  create("release") {
+                      val keystorePath =
+                          System.getenv("JARVIS_KEYSTORE_PATH")
+                              ?: error(
+                                  "JARVIS_KEYSTORE_PATH is missing"
+                              )
+
+                      storeFile = file(keystorePath)
+
+                      storePassword =
+                          System.getenv(
+                              "JARVIS_KEYSTORE_PASSWORD"
+                          ) ?: error(
+                              "JARVIS_KEYSTORE_PASSWORD is missing"
+                          )
+
+                      keyAlias = "jarvis"
+
+                      keyPassword =
+                          System.getenv(
+                              "JARVIS_KEY_PASSWORD"
+                          ) ?: error(
+                              "JARVIS_KEY_PASSWORD is missing"
+                          )
+                  }
               }
 
               buildTypes {
@@ -115,12 +165,17 @@ jobs:
 
                   release {
                       isMinifyEnabled = false
+                      signingConfig =
+                          signingConfigs.getByName("release")
                   }
               }
 
               compileOptions {
-                  sourceCompatibility = JavaVersion.VERSION_17
-                  targetCompatibility = JavaVersion.VERSION_17
+                  sourceCompatibility =
+                      JavaVersion.VERSION_17
+
+                  targetCompatibility =
+                      JavaVersion.VERSION_17
               }
 
               buildFeatures {
@@ -138,11 +193,13 @@ jobs:
 
           dependencies {
               implementation(
-                  "org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2"
+                  "org.jetbrains.kotlinx:" +
+                      "kotlinx-coroutines-android:1.10.2"
               )
 
               implementation(
-                  "com.google.ai.edge.litertlm:litertlm-android:0.16.1"
+                  "com.google.ai.edge.litertlm:" +
+                      "litertlm-android:0.16.1"
               )
           }
           EOF
@@ -154,10 +211,21 @@ jobs:
                   name="Theme.JarvisV4"
                   parent="android:style/Theme.Material.NoActionBar">
 
-                  <item name="android:fontFamily">sans</item>
-                  <item name="android:statusBarColor">#050505</item>
-                  <item name="android:navigationBarColor">#050505</item>
-                  <item name="android:windowLightStatusBar">false</item>
+                  <item name="android:fontFamily">
+                      sans
+                  </item>
+
+                  <item name="android:statusBarColor">
+                      #050505
+                  </item>
+
+                  <item name="android:navigationBarColor">
+                      #050505
+                  </item>
+
+                  <item name="android:windowLightStatusBar">
+                      false
+                  </item>
 
               </style>
 
@@ -198,6 +266,407 @@ jobs:
           </manifest>
           EOF
 
+          cat > JARVIS_V4/app/src/main/java/com/jarvis/v4/ai/ModelDownloader.kt <<'EOF'
+          package com.jarvis.v4.ai
+
+          import android.content.ContentValues
+          import android.content.Context
+          import android.provider.MediaStore
+          import kotlinx.coroutines.Dispatchers
+          import kotlinx.coroutines.withContext
+          import java.io.File
+          import java.net.HttpURLConnection
+          import java.net.URL
+
+          class ModelDownloader(
+              private val context: Context
+          ) {
+
+              companion object {
+
+                  private const val MODEL_NAME =
+                      "gemma-4-E2B-it.litertlm"
+
+                  private const val DOWNLOAD_PATH =
+                      "Download/JARVIS_V4"
+
+                  private const val MODEL_URL =
+                      "https://huggingface.co/" +
+                      "litert-community/" +
+                      "gemma-4-E2B-it-litert-lm/" +
+                      "resolve/main/" +
+                      "gemma-4-E2B-it.litertlm"
+
+                  private const val MODEL_DIRECTORY =
+                      "litert_models"
+              }
+
+              private val internalModel: File
+                  get() = File(
+                      File(
+                          context.filesDir,
+                          MODEL_DIRECTORY
+                      ),
+                      MODEL_NAME
+                  )
+
+              suspend fun ensureModel():
+                  Result<String> =
+                  withContext(Dispatchers.IO) {
+
+                      try {
+
+                          if (internalModel.exists() &&
+                              internalModel.length() > 0L
+                          ) {
+                              return@withContext Result.success(
+                                  "Gemma model is ready."
+                              )
+                          }
+
+                          internalModel.parentFile?.mkdirs()
+
+                          val savedUri =
+                              findSavedModel()
+
+                          if (savedUri != null) {
+
+                              copyFromDownloads(
+                                  savedUri
+                              )
+
+                              return@withContext Result.success(
+                                  "Gemma model restored."
+                              )
+                          }
+
+                          downloadModel()
+
+                          val downloadedUri =
+                              findSavedModel()
+
+                          if (downloadedUri == null) {
+                              return@withContext Result.failure(
+                                  Exception(
+                                      "Gemma download completed " +
+                                      "but model was not found."
+                                  )
+                              )
+                          }
+
+                          copyFromDownloads(
+                              downloadedUri
+                          )
+
+                          Result.success(
+                              "Gemma model downloaded."
+                          )
+
+                      } catch (e: Exception) {
+
+                          Result.failure(
+                              Exception(
+                                  "Gemma model error: " +
+                                  (
+                                      e.message
+                                          ?: "Unknown error"
+                                  )
+                              )
+                          )
+                      }
+                  }
+
+              private fun findSavedModel():
+                  android.net.Uri? {
+
+                  val collection =
+                      MediaStore.Downloads.EXTERNAL_CONTENT_URI
+
+                  val projection =
+                      arrayOf(
+                          MediaStore.Downloads._ID,
+                          MediaStore.Downloads.DISPLAY_NAME,
+                          MediaStore.Downloads.RELATIVE_PATH
+                      )
+
+                  val selection =
+                      MediaStore.Downloads.DISPLAY_NAME +
+                          " = ? AND " +
+                          MediaStore.Downloads.RELATIVE_PATH +
+                          " = ?"
+
+                  val selectionArgs =
+                      arrayOf(
+                          MODEL_NAME,
+                          "$DOWNLOAD_PATH/"
+                      )
+
+                  context.contentResolver.query(
+                      collection,
+                      projection,
+                      selection,
+                      selectionArgs,
+                      null
+                  )?.use { cursor ->
+
+                      if (cursor.moveToFirst()) {
+
+                          val id =
+                              cursor.getLong(
+                                  cursor.getColumnIndexOrThrow(
+                                      MediaStore.Downloads._ID
+                                  )
+                              )
+
+                          return android.content.ContentUris
+                              .withAppendedId(
+                                  collection,
+                                  id
+                              )
+                      }
+                  }
+
+                  return null
+              }
+
+              private fun removeOldPendingModel() {
+
+                  val collection =
+                      MediaStore.Downloads.EXTERNAL_CONTENT_URI
+
+                  val selection =
+                      MediaStore.Downloads.DISPLAY_NAME +
+                          " = ? AND " +
+                          MediaStore.Downloads.RELATIVE_PATH +
+                          " = ?"
+
+                  val args =
+                      arrayOf(
+                          MODEL_NAME,
+                          "$DOWNLOAD_PATH/"
+                      )
+
+                  context.contentResolver.delete(
+                      collection,
+                      selection,
+                      args
+                  )
+              }
+
+              private fun downloadModel() {
+
+                  removeOldPendingModel()
+
+                  val values =
+                      ContentValues().apply {
+
+                          put(
+                              MediaStore.Downloads.DISPLAY_NAME,
+                              MODEL_NAME
+                          )
+
+                          put(
+                              MediaStore.Downloads.MIME_TYPE,
+                              "application/octet-stream"
+                          )
+
+                          put(
+                              MediaStore.Downloads.RELATIVE_PATH,
+                              "$DOWNLOAD_PATH/"
+                          )
+
+                          put(
+                              MediaStore.Downloads.IS_PENDING,
+                              1
+                          )
+                      }
+
+                  val collection =
+                      MediaStore.Downloads.EXTERNAL_CONTENT_URI
+
+                  val uri =
+                      context.contentResolver.insert(
+                          collection,
+                          values
+                      ) ?: throw Exception(
+                          "Could not create Downloads file."
+                      )
+
+                  var completed = false
+
+                  try {
+
+                      val connection =
+                          URL(MODEL_URL)
+                              .openConnection()
+                              as HttpURLConnection
+
+                      connection.connectTimeout =
+                          30000
+
+                      connection.readTimeout =
+                          60000
+
+                      connection.requestMethod =
+                          "GET"
+
+                      connection.connect()
+
+                      val response =
+                          connection.responseCode
+
+                      if (response !in 200..299) {
+                          throw Exception(
+                              "Download HTTP error: $response"
+                          )
+                      }
+
+                      val input =
+                          connection.inputStream
+
+                      val output =
+                          context.contentResolver
+                              .openOutputStream(uri)
+
+                      if (output == null) {
+                          throw Exception(
+                              "Could not open model output."
+                          )
+                      }
+
+                      input.use { source ->
+                          output.use { target ->
+
+                              val buffer =
+                                  ByteArray(1024 * 1024)
+
+                              while (true) {
+
+                                  val count =
+                                      source.read(buffer)
+
+                                  if (count == -1) {
+                                      break
+                                  }
+
+                                  target.write(
+                                      buffer,
+                                      0,
+                                      count
+                                  )
+                              }
+                          }
+                      }
+
+                      connection.disconnect()
+
+                      val doneValues =
+                          ContentValues().apply {
+                              put(
+                                  MediaStore.Downloads.IS_PENDING,
+                                  0
+                              )
+                          }
+
+                      context.contentResolver.update(
+                          uri,
+                          doneValues,
+                          null,
+                          null
+                      )
+
+                      completed = true
+
+                  } finally {
+
+                      if (!completed) {
+                          context.contentResolver.delete(
+                              uri,
+                              null,
+                              null
+                          )
+                      }
+                  }
+              }
+
+              private fun copyFromDownloads(
+                  uri: android.net.Uri
+              ) {
+
+                  internalModel.parentFile?.mkdirs()
+
+                  val tempFile =
+                      File(
+                          internalModel.parentFile,
+                          "$MODEL_NAME.part"
+                      )
+
+                  context.contentResolver
+                      .openInputStream(uri)
+                      ?.use { input ->
+
+                          tempFile.outputStream()
+                              .use { output ->
+
+                              val buffer =
+                                  ByteArray(1024 * 1024)
+
+                              while (true) {
+
+                                  val count =
+                                      input.read(buffer)
+
+                                  if (count == -1) {
+                                      break
+                                  }
+
+                                  output.write(
+                                      buffer,
+                                      0,
+                                      count
+                                  )
+                              }
+                          }
+                      }
+                      ?: throw Exception(
+                          "Could not read saved Gemma model."
+                      )
+
+                  if (tempFile.length() <= 0L) {
+                      tempFile.delete()
+
+                      throw Exception(
+                          "Saved Gemma model is empty."
+                      )
+                  }
+
+                  if (internalModel.exists()) {
+                      internalModel.delete()
+                  }
+
+                  if (!tempFile.renameTo(internalModel)) {
+                      tempFile.copyTo(
+                          internalModel,
+                          overwrite = true
+                      )
+
+                      tempFile.delete()
+                  }
+              }
+
+              fun isModelAvailable(): Boolean {
+
+                  if (internalModel.exists() &&
+                      internalModel.length() > 0L
+                  ) {
+                      return true
+                  }
+
+                  return findSavedModel() != null
+              }
+          }
+          EOF
+
           cat > JARVIS_V4/app/src/main/java/com/jarvis/v4/ai/LocalAI.kt <<'EOF'
           package com.jarvis.v4.ai
 
@@ -229,7 +698,8 @@ jobs:
               private var conversation:
                   Conversation? = null
 
-              private var initialized = false
+              private var initialized =
+                  false
 
               private val modelFile: File
                   get() = File(
@@ -250,7 +720,9 @@ jobs:
                           )
                       }
 
-                      if (!modelFile.exists()) {
+                      if (!modelFile.exists() ||
+                          modelFile.length() <= 0L
+                      ) {
                           return@withContext Result.failure(
                               Exception(
                                   "Gemma model was not found."
@@ -344,7 +816,8 @@ jobs:
                                       )
                                   )
 
-                          val systemPrompt = """
+                          val systemPrompt =
+                              """
                               You are JARVIS, a personal AI assistant.
 
                               The user may speak English,
@@ -361,7 +834,7 @@ jobs:
 
                               User message:
                               $prompt
-                          """.trimIndent()
+                              """.trimIndent()
 
                           val output =
                               StringBuilder()
@@ -405,11 +878,13 @@ jobs:
                   }
 
               fun isReady(): Boolean {
+
                   return initialized &&
                       conversation != null
               }
 
               fun isModelInstalled(): Boolean {
+
                   return modelFile.exists() &&
                       modelFile.length() > 0L
               }
@@ -454,6 +929,7 @@ jobs:
           import android.widget.ScrollView
           import android.widget.TextView
           import com.jarvis.v4.ai.LocalAI
+          import com.jarvis.v4.ai.ModelDownloader
           import kotlinx.coroutines.CoroutineScope
           import kotlinx.coroutines.Dispatchers
           import kotlinx.coroutines.SupervisorJob
@@ -464,6 +940,9 @@ jobs:
 
               private lateinit var localAI:
                   LocalAI
+
+              private lateinit var downloader:
+                  ModelDownloader
 
               private lateinit var chat:
                   TextView
@@ -486,6 +965,7 @@ jobs:
               override fun onCreate(
                   savedInstanceState: Bundle?
               ) {
+
                   super.onCreate(
                       savedInstanceState
                   )
@@ -493,7 +973,97 @@ jobs:
                   localAI =
                       LocalAI(this)
 
+                  downloader =
+                      ModelDownloader(this)
+
                   createChatScreen()
+
+                  prepareLocalAI()
+              }
+
+              private fun prepareLocalAI() {
+
+                  askButton.isEnabled =
+                      false
+
+                  status.text =
+                      "● CHECKING GEMMA MODEL..."
+
+                  status.setTextColor(
+                      Color.YELLOW
+                  )
+
+                  scope.launch {
+
+                      val modelResult =
+                          downloader.ensureModel()
+
+                      if (modelResult.isFailure) {
+
+                          appendMessage(
+                              "ERROR",
+                              modelResult
+                                  .exceptionOrNull()
+                                  ?.message
+                                  ?: "Gemma model error."
+                          )
+
+                          status.text =
+                              "● GEMMA MODEL ERROR"
+
+                          status.setTextColor(
+                              Color.RED
+                          )
+
+                          return@launch
+                      }
+
+                      status.text =
+                          "● STARTING LOCAL GEMMA..."
+
+                      val aiResult =
+                          localAI.initialize()
+
+                      if (aiResult.isSuccess) {
+
+                          status.text =
+                              "● LOCAL GEMMA • READY"
+
+                          status.setTextColor(
+                              Color.rgb(
+                                  0,
+                                  210,
+                                  255
+                              )
+
+                          )
+
+                          appendMessage(
+                              "JARVIS",
+                              "Local Gemma 4 E2B is ready."
+                          )
+
+                          askButton.isEnabled =
+                              true
+
+                      } else {
+
+                          appendMessage(
+                              "ERROR",
+                              aiResult
+                                  .exceptionOrNull()
+                                  ?.message
+                                  ?: "Gemma initialization failed."
+                          )
+
+                          status.text =
+                              "● LOCAL AI ERROR"
+
+                          status.setTextColor(
+                              Color.RED
+                          )
+                      }
+                  }
               }
 
               private fun createChatScreen() {
@@ -547,7 +1117,7 @@ jobs:
                       TextView(this)
 
                   status.text =
-                      "● LOCAL GEMMA • READY TO CHAT"
+                      "● GEMMA MODEL • CHECKING"
 
                   status.textSize =
                       14f
@@ -556,11 +1126,7 @@ jobs:
                       Gravity.CENTER
 
                   status.setTextColor(
-                      Color.rgb(
-                          0,
-                          210,
-                          255
-                      )
+                      Color.YELLOW
                   )
 
                   val statusParams =
@@ -588,11 +1154,8 @@ jobs:
                       JARVIS:
                       Hello. I am JARVIS V4.
 
-                      Your Gemma 4 E2B local model
-                      is installed on this device.
-
-                      Ask me something to test
-                      the local AI brain.
+                      Checking the local Gemma 4 E2B
+                      model and starting the AI brain...
                       """.trimIndent()
 
                   chat.textSize =
@@ -757,6 +1320,7 @@ jobs:
                                   210,
                                   255
                               )
+
                           )
 
                       } else {
@@ -799,10 +1363,12 @@ jobs:
                           message
 
                   chat.post {
+
                       val parent =
                           chat.parent
 
                       if (parent is ScrollView) {
+
                           parent.fullScroll(
                               View.FOCUS_DOWN
                           )
@@ -834,16 +1400,36 @@ jobs:
           }
           EOF
 
-      - name: Build APK
+      - name: Configure signing environment
+        env:
+          KEYSTORE_PASSWORD: ${{ secrets.JARVIS_KEYSTORE_PASSWORD }}
+          KEY_PASSWORD: ${{ secrets.JARVIS_KEY_PASSWORD }}
+        run: |
+          set -e
+
+          echo \
+            "JARVIS_KEYSTORE_PATH=$RUNNER_TEMP/jarvis-signing/jarvis-v4-release.jks" \
+            >> "$GITHUB_ENV"
+
+          echo \
+            "JARVIS_KEYSTORE_PASSWORD=$KEYSTORE_PASSWORD" \
+            >> "$GITHUB_ENV"
+
+          echo \
+            "JARVIS_KEY_PASSWORD=$KEY_PASSWORD" \
+            >> "$GITHUB_ENV"
+
+      - name: Build signed APK
         working-directory: JARVIS_V4
         run: |
           gradle wrapper --gradle-version 8.11.1
-          ./gradlew assembleDebug --stacktrace
+          ./gradlew assembleRelease --stacktrace
 
       - name: Commit generated project
         shell: bash
         run: |
           git config user.name "github-actions[bot]"
+
           git config user.email \
             "41898282+github-actions[bot]@users.noreply.github.com"
 
@@ -852,7 +1438,9 @@ jobs:
           if git diff --cached --quiet; then
             echo "No changes."
           else
-            git commit -m "Add local Gemma chat"
+            git commit \
+              -m "Add persistent signing and Gemma storage"
+
             git push
           fi
 
@@ -860,5 +1448,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: JARVIS-V4-APK
-          path: JARVIS_V4/app/build/outputs/apk/debug/app-debug.apk
+          path: JARVIS_V4/app/build/outputs/apk/release/app-release.apk
           if-no-files-found: error
