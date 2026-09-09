@@ -43,17 +43,10 @@ jobs:
           KEYSTORE_B64: ${{ secrets.JARVIS_KEYSTORE_B64 }}
         run: |
           set -e
-
           test -n "$KEYSTORE_B64"
-
           mkdir -p "$RUNNER_TEMP/jarvis-signing"
-
-          echo "$KEYSTORE_B64" |
-            base64 --decode >
-            "$RUNNER_TEMP/jarvis-signing/jarvis-v4-release.jks"
-
-          test -s \
-            "$RUNNER_TEMP/jarvis-signing/jarvis-v4-release.jks"
+          echo "$KEYSTORE_B64" | base64 --decode > "$RUNNER_TEMP/jarvis-signing/jarvis-v4-release.jks"
+          test -s "$RUNNER_TEMP/jarvis-signing/jarvis-v4-release.jks"
 
       - name: Create JARVIS V4 project
         shell: bash
